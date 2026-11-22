@@ -71,34 +71,71 @@ export function bindInput(target, onAction) {
   });
 
   const swipe = new SwipeTracker();
-  let pointerId = null;
-  target.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button, a') || pointerId !== null) return;
-    pointerId = e.pointerId;
+  const begin = (x, y) => {
     // Shorter strokes on small screens.
     swipe.step = Math.max(14, Math.min(26, Math.min(innerWidth, innerHeight) * 0.045));
-    swipe.start(e.clientX, e.clientY);
+    swipe.start(x, y);
+  };
+  const moveTo = (x, y, e, haptic = false) => {
+    const action = swipe.move(x, y);
+    if (!action) return;
+    // A short tick under the finger confirms each detected turn
+    // (Android; iOS Safari has no Vibration API, so this is a no-op there).
+    if (haptic) navigator.vibrate?.(12);
+    onAction(action, e);
+  };
+  const finish = (e, cancelled) => {
+    const tap = swipe.end();
+    if (tap && !cancelled) onAction(tap, e);
+  };
+  const interactive = (e) => e.target.closest?.('button, a');
+
+  // Touch: native touch events with preventDefault. Unlike pointer events, the
+  // browser never cancels them for its own gestures (long press, pan, zoom),
+  // so a finger can stay on the screen and keep steering.
+  let touchId = null;
+  const ownTouch = (e) => [...e.changedTouches].find((t) => t.identifier === touchId);
+  target.addEventListener('touchstart', (e) => {
+    if (interactive(e) || touchId !== null) return;
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    touchId = t.identifier;
+    begin(t.clientX, t.clientY);
+  }, { passive: false });
+  target.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = ownTouch(e);
+    if (t) moveTo(t.clientX, t.clientY, e, true);
+  }, { passive: false });
+  for (const type of ['touchend', 'touchcancel']) {
+    target.addEventListener(type, (e) => {
+      if (!ownTouch(e)) return;
+      touchId = null;
+      finish(e, type === 'touchcancel');
+    });
+  }
+
+  // Mouse (and pen): drag to steer, click to tap.
+  let pointerId = null;
+  target.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch' || interactive(e) || pointerId !== null) return;
+    pointerId = e.pointerId;
+    begin(e.clientX, e.clientY);
     target.setPointerCapture?.(e.pointerId);
   });
   target.addEventListener('pointermove', (e) => {
     if (e.pointerId !== pointerId) return;
-    // Coalesced events give the full path even when frames are slow.
     const events = e.getCoalescedEvents?.() ?? [];
-    for (const p of events.length ? events : [e]) {
-      const action = swipe.move(p.clientX, p.clientY);
-      if (action) onAction(action, e);
-    }
+    for (const p of events.length ? events : [e]) moveTo(p.clientX, p.clientY, e);
   });
-  const finish = (e) => {
-    if (e.pointerId !== pointerId) return;
-    pointerId = null;
-    const tap = e.type === 'pointerup' ? swipe.end() : (swipe.end(), null);
-    if (tap) onAction(tap, e);
-  };
-  target.addEventListener('pointerup', finish);
-  target.addEventListener('pointercancel', finish);
-  // Swiping must not scroll or zoom the page.
-  target.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  for (const type of ['pointerup', 'pointercancel']) {
+    target.addEventListener(type, (e) => {
+      if (e.pointerId !== pointerId) return;
+      pointerId = null;
+      finish(e, type === 'pointercancel');
+    });
+  }
+  target.addEventListener('contextmenu', (e) => e.preventDefault());
 
   for (const btn of document.querySelectorAll('[data-action]')) {
     btn.addEventListener('pointerdown', (e) => {

@@ -1,6 +1,7 @@
 // Game shell: stage, loop, world switching, HUD and overlays.
 import { Snake, randomFreeCell } from './snake.js';
 import { WORLDS, APPLES_PER_WORLD } from './worlds/index.js';
+import { makeOrder } from './order.js';
 import { bindInput } from './input.js';
 import { sfx } from './audio.js';
 import * as THREE from './render/three.js';
@@ -57,7 +58,9 @@ const stage = (() => {
 // ----------------------------------------------------------------- state ---
 const game = {
   phase: 'title', // title | playing | paused | dying | over
-  worldIndex: 0,
+  worldIndex: 0, // index into WORLDS
+  order: [], // shuffled WORLDS indices for the current loop
+  stage: 0, // position in `order` (shown as "World k / N")
   loop: 0,
   world: null,
   inst: null,
@@ -164,7 +167,7 @@ function makeView(snake, apple, alpha, dt = 0) {
     best: Math.max(game.best, game.score),
     applesInWorld: game.applesInWorld,
     applesPerWorld: APPLES_PER_WORLD,
-    worldIndex: game.worldIndex,
+    worldIndex: game.stage,
     worldCount: WORLDS.length,
     phase: game.phase,
   };
@@ -213,12 +216,15 @@ function enterWorld(index, length, carry = null) {
   updateHud();
 }
 
-function startGame(index = 0) {
+/** @param {number|null} index start in this world (practice), else random */
+function startGame(index = null) {
   sfx.unlock();
   sfx.start();
   game.score = 0;
   game.loop = 0;
-  enterWorld(index, 3);
+  game.order = makeOrder(WORLDS, Math.random, { first: index });
+  game.stage = 0;
+  enterWorld(game.order[0], 3);
   setPhase('playing');
 }
 
@@ -263,9 +269,15 @@ function gameOver() {
 
 /** Swaps to the next world without stopping the game. */
 function warp() {
-  const next = (game.worldIndex + 1) % WORLDS.length;
+  const oldStage = game.stage;
+  game.stage += 1;
+  if (game.stage >= game.order.length) {
+    game.loop += 1;
+    game.stage = 0;
+    game.order = makeOrder(WORLDS, Math.random, { after: game.worldIndex });
+  }
+  const next = game.order[game.stage];
   const w = WORLDS[next];
-  if (next === 0) game.loop += 1;
   sfx.warp();
   endTransition();
 
@@ -276,7 +288,7 @@ function warp() {
     elapsed: 0,
     oldInst: inst,
     oldWorld: game.world,
-    oldIndex: game.worldIndex,
+    oldStage,
     oldBody: [...snake.body],
     oldDir: snake.dir,
     drained: 0,
@@ -289,7 +301,7 @@ function warp() {
   };
   enterWorld(next, snake.length, carry);
 
-  $('#toast-num').textContent = `World ${next + 1} / ${WORLDS.length}${game.loop ? ` · Loop ${game.loop + 1}` : ''}`;
+  $('#toast-num').textContent = `World ${game.stage + 1} / ${WORLDS.length}${game.loop ? ` · Loop ${game.loop + 1}` : ''}`;
   $('#toast-title').textContent = w.title;
   $('#toast-controls').textContent = w.controls;
   const toast = $('#toast');
@@ -345,7 +357,7 @@ function renderTransition(view, dt) {
   const c = { x: from.x + (to.x - from.x) * ease, y: from.y + (to.y - from.y) * ease };
   const maxR = Math.hypot(Math.max(c.x, width - c.x), Math.max(c.y, height - c.y));
   const r = 6 + ease * maxR * 1.1;
-  const oldView = { ...view, snake: drainingSnake(t), apple: null, worldIndex: t.oldIndex, applesInWorld: APPLES_PER_WORLD };
+  const oldView = { ...view, snake: drainingSnake(t), apple: null, worldIndex: t.oldStage, applesInWorld: APPLES_PER_WORLD };
   let head;
 
   stage.glCanvas.hidden = !(game.world.three || t.oldWorld.three);
@@ -400,7 +412,7 @@ function togglePause() {
 
 // ------------------------------------------------------------------- HUD ---
 function updateHud() {
-  $('#hud-world').textContent = `${game.worldIndex + 1}. ${game.world.title}`;
+  $('#hud-world').textContent = `${game.stage + 1}. ${game.world.title}`;
   $('#hud-score').textContent = game.score;
   $('#hud-best').textContent = Math.max(game.best, game.score);
   const dots = $('#hud-apples');
@@ -420,10 +432,10 @@ function onAction(action) {
   if (action === 'mute') return void (sfx.toggleMute(), updateHud());
   switch (game.phase) {
     case 'title':
-      if (action === 'confirm' || action === 'tap' || action === 'up') startGame(0);
+      if (action === 'confirm' || action === 'tap' || action === 'up') startGame();
       break;
     case 'over':
-      if (action === 'confirm' || action === 'tap' || action === 'pause') startGame(0);
+      if (action === 'confirm' || action === 'tap' || action === 'pause') startGame();
       break;
     case 'paused':
       if (action === 'pause' || action === 'confirm' || action === 'tap') togglePause();
@@ -474,7 +486,7 @@ function boot() {
   WORLDS.forEach((w, i) => {
     const b = document.createElement('button');
     b.className = 'chip';
-    b.innerHTML = `<b>${i + 1}</b> ${w.title}`;
+    b.textContent = w.title;
     b.title = `Practice: start in ${w.title}`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -485,7 +497,7 @@ function boot() {
   for (const b of document.querySelectorAll('[data-start]')) {
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      startGame(0);
+      startGame();
     });
   }
   $('#title-best').textContent = game.best;

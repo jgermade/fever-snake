@@ -17,8 +17,10 @@ const ASSETS = [
   './src/snake.js',
   './src/input.js',
   './src/audio.js',
+  './src/order.js',
   './src/topologies/grid.js',
   './src/topologies/cube.js',
+  './src/topologies/portal-grid.js',
   './src/render/util.js',
   './src/render/three.js',
   './src/render/three-util.js',
@@ -32,6 +34,11 @@ const ASSETS = [
   './src/worlds/terminal.js',
   './src/worlds/firstperson.js',
   './src/worlds/doodle.js',
+  './src/worlds/spreadsheet.js',
+  './src/worlds/portals.js',
+  './src/worlds/planet.js',
+  './src/worlds/isometric.js',
+  './src/worlds/lightsout.js',
 ];
 
 self.addEventListener('install', (event) => {
@@ -48,23 +55,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache first (the cache is versioned per deploy); fall back to the network
-// and remember what we fetched. Navigations fall back to the cached shell.
+// Network first, so a new deploy shows up on the next load; the cache (kept
+// fresh by every successful fetch) is the fallback when offline.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
   event.respondWith(
-    caches.match(request, { ignoreSearch: request.mode === 'navigate' }).then((hit) => {
-      if (hit) return hit;
-      return fetch(request)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
-          }
-          return res;
-        })
-        .catch(() => (request.mode === 'navigate' ? caches.match('./index.html') : Response.error()));
-    }),
+    fetch(request)
+      .then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
+        return res;
+      })
+      .catch(() =>
+        caches.match(request, { ignoreSearch: request.mode === 'navigate' })
+          .then((hit) => hit ?? (request.mode === 'navigate' ? caches.match('./index.html') : Response.error())),
+      ),
   );
 });
