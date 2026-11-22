@@ -20,7 +20,7 @@ function makeWalls(seed) {
       for (let k = 0; k < len; k++) {
         const x = x0 + (horiz ? k : 0);
         const y = y0 + (horiz ? 0 : k);
-        if (Math.abs(y - SPAWN.y) <= 1 && x < 12) continue; // clear start
+        if (Math.abs(y - SPAWN.y) <= 1 && x < 20) continue; // clear start lane
         walls.push([x, y]);
       }
     }

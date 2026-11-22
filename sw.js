@@ -18,6 +18,8 @@ const ASSETS = [
   './src/input.js',
   './src/audio.js',
   './src/order.js',
+  './src/placement.js',
+  './src/topologies/mobius.js',
   './src/topologies/grid.js',
   './src/topologies/cube.js',
   './src/topologies/portal-grid.js',
@@ -39,6 +41,11 @@ const ASSETS = [
   './src/worlds/planet.js',
   './src/worlds/isometric.js',
   './src/worlds/lightsout.js',
+  './src/worlds/mobius.js',
+  './src/worlds/deepspace.js',
+  './src/worlds/vertigo.js',
+  './src/worlds/checkmate.js',
+  './src/worlds/aquarium.js',
 ];
 
 self.addEventListener('install', (event) => {

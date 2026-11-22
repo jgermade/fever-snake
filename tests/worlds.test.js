@@ -12,7 +12,7 @@ test('worlds have unique ids and the fields the game needs', () => {
     assert.ok(!ids.has(w.id), `duplicate id ${w.id}`);
     ids.add(w.id);
   }
-  assert.ok(WORLDS.length >= 13);
+  assert.ok(WORLDS.length >= 18);
 });
 
 test('the authored order never puts two 3D worlds back to back (also when looping)', () => {

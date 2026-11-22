@@ -14,9 +14,15 @@ import isometric from './isometric.js';
 import firstperson from './firstperson.js';
 import lightsout from './lightsout.js';
 import doodle from './doodle.js';
+import mobius from './mobius.js';
+import deepspace from './deepspace.js';
+import vertigo from './vertigo.js';
+import checkmate from './checkmate.js';
+import aquarium from './aquarium.js';
 
 export const APPLES_PER_WORLD = 5;
 export const WORLDS = [
   neon, retro95, cube, pocket, spreadsheet, tube, terminal,
-  portals, planet, isometric, firstperson, lightsout, doodle,
+  portals, planet, isometric, firstperson, lightsout, mobius, doodle,
+  deepspace, vertigo, checkmate, aquarium,
 ];

@@ -1,11 +1,13 @@
 # Fever Snake
 
-A snake game that **mutates every 5 apples**. Thirteen worlds, each with its
+A snake game that **mutates every 5 apples**. Eighteen worlds, each with its
 own look, topology and controls, played **in a random order** (a new shuffle
 every loop, never two 3D worlds in a row), then it loops faster. The change is
 seamless: the game never pauses. A portal opens at the snake's head; outside it
 the old world keeps running while the snake slides into it, inside it the new
 world is already live and the snake comes out at the same spot on screen.
+Arrivals are fair: the snake is placed with a long free runway ahead (never
+facing a wall or obstacle) and its first moves are slowed down.
 
 | World | What changes |
 |-------|--------------|
@@ -21,7 +23,12 @@ world is already live and the snake comes out at the same spot on screen.
 | Isometric Garden | 2.5D floating island; controls rotated 45° |
 | Labyrinth | 3D first person: you are the head; left/right turn |
 | Lights Out | Pitch dark; only the snake's lantern lights the way |
+| Möbius Strip | 3D: a one-sided band; after a lap you ride the other side, left/right swapped |
 | Notebook | Boiling pencil doodle on lined paper |
+| Deep Space | Vector graphics, wrapping edges, drifting asteroids |
+| Vertigo | The board turns 90° every few seconds; arrows follow the screen |
+| Checkmate | A giant chessboard; the pieces are obstacles |
+| Aquarium | An eel among swaying kelp, coral, bubbles and fish |
 
 Controls: arrows / WASD or swipe, `P`/`Space` pause, `M` mute. On touch screens
 you can steer continuously: keep the finger down and draw the path (an "L"
@@ -57,12 +64,13 @@ One-time setup: **Settings → Pages → Build and deployment → Source: GitHub
 
 - `src/snake.js` — topology-agnostic snake rules.
 - `src/topologies/` — `grid.js` (rectangle / torus when wrapping), `cube.js`
-  (also used for the planet), `portal-grid.js`.
+  (also used for the planet), `portal-grid.js`, `mobius.js`.
 - `src/worlds/` — one module per world: topology, input mapping and renderer.
   `uvOf(cell)` / `screenOf(cell)` let the snake be carried between worlds;
   `render()` returns the head's screen position (the centre of the portal).
   `index.js` lists them and sets `APPLES_PER_WORLD`; `src/order.js` shuffles
-  the order per run (3D worlds, `three: true`, are never adjacent).
+  the order per run (3D worlds, `three: true`, are never adjacent);
+  `src/placement.js` picks a fair arrival cell.
 - `src/main.js` — loop, world switching, HUD and overlays.
 - `vendor/three.module.min.js` — three.js r170 (MIT, see `vendor/three.LICENSE`).
 
