@@ -50,12 +50,15 @@ export default {
   sfx: 'square',
 
   setup(stage) {
+    let layout = null;
     const topology = new GridTopology({ width: W, height: H, walls: makeWalls(Date.now()) });
     return {
       topology,
       spawn: { cell: { x: 3, y: 9 }, dir: 1 },
       mapAction: absoluteGrid,
       uvOf: gridUV(W, H),
+      /** Screen position of a cell, from the last rendered layout. */
+      screenOf: (cell) => layout && ({ x: layout.ox + (cell.x + 1.5) * layout.cw, y: layout.oy + (cell.y + 3.5) * layout.ch }),
       render(view) {
         const { ctx, width, height } = stage;
         ctx.fillStyle = '#020b04';
@@ -113,6 +116,7 @@ export default {
         ctx.fillRect(0, 0, width, height);
         ctx.fillStyle = `rgba(51,255,102,${0.015 + Math.random() * 0.02})`;
         ctx.fillRect(0, 0, width, height);
+        layout = { ox, oy, cw, ch };
         return { x: ox + (view.snake.head.x + 1.5) * cw, y: oy + (view.snake.head.y + 3.5) * ch };
       },
       dispose() {},

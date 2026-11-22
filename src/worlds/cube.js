@@ -23,6 +23,7 @@ export default {
   deathTitle: 'Game over',
   deathMessage: "Lost in the cube's geometry.",
   hud: true,
+  three: true,
   sfx: 'sine',
 
   setup(stage) {

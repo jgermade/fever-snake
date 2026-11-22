@@ -53,6 +53,7 @@ export default {
   sfx: 'square',
 
   setup(stage) {
+    let layout = null;
     const topology = new GridTopology({ width: W, height: H, wrap: true });
     const lcd = document.createElement('canvas');
     lcd.width = 160;
@@ -64,6 +65,8 @@ export default {
       spawn: { cell: { x: 4, y: 8 }, dir: 1 },
       mapAction: absoluteGrid,
       uvOf: gridUV(W, H),
+      /** Screen position of a cell, from the last rendered layout. */
+      screenOf: (cell) => layout && ({ x: layout.sx + (cell.x * 8 + 4) * layout.scale, y: layout.sy + (16 + cell.y * 8 + 4) * layout.scale }),
       render(view) {
         // --- LCD contents at native resolution ---
         g.fillStyle = PAL[3];
@@ -125,6 +128,7 @@ export default {
         ctx.fillText('FEVER', bx, by + bh + 28);
         ctx.fillStyle = '#7a1d5c';
         ctx.fillText(' BOY', bx + ctx.measureText('FEVER').width, by + bh + 28);
+        layout = { sx, sy, scale };
         return { x: sx + (view.snake.head.x * 8 + 4) * scale, y: sy + (16 + view.snake.head.y * 8 + 4) * scale };
       },
       dispose() {},

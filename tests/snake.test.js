@@ -32,6 +32,25 @@ test('reverse input is ignored, perpendicular input turns', () => {
   assert.equal(s.dir, 0);
 });
 
+test('quick U-turn: perpendicular + reverse pressed together, in either order', () => {
+  for (const keys of [['down', 'right'], ['right', 'down']]) {
+    const s = new Snake(grid(), { cell: { x: 5, y: 5 }, dir: 3 }, 3); // heading left
+    for (const k of keys) s.enqueue(k);
+    s.step(null, absoluteGrid);
+    assert.equal(s.dir, 2, `${keys}: turns down first`);
+    s.step(null, absoluteGrid);
+    assert.equal(s.dir, 1, `${keys}: then right`);
+  }
+});
+
+test('a lone reverse press is dropped, not kept for later', () => {
+  const s = new Snake(grid(), { cell: { x: 5, y: 5 }, dir: 3 }, 3);
+  s.enqueue('right');
+  s.step(null, absoluteGrid);
+  assert.equal(s.dir, 3);
+  assert.equal(s.queue.length, 0);
+});
+
 test('relative input turns from the current heading', () => {
   const s = new Snake(grid(), { cell: { x: 5, y: 5 }, dir: 0 }, 1);
   s.enqueue('right');

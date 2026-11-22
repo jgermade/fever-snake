@@ -18,12 +18,15 @@ export default {
   sfx: 'sawtooth',
 
   setup(stage) {
+    let layout = null;
     const topology = new GridTopology({ width: W, height: H });
     return {
       topology,
       spawn: { cell: { x: 4, y: H >> 1 }, dir: 1 },
       mapAction: absoluteGrid,
       uvOf: gridUV(W, H),
+      /** Screen position of a cell, from the last rendered layout. */
+      screenOf: (cell) => layout && ({ x: layout.ox + (cell.x + 0.5) * layout.c, y: layout.oy + (cell.y + 0.5) * layout.c }),
       render(view) {
         const { ctx, width, height } = stage;
         const b = fitBoard(width - 32, height - 120, W, H);
@@ -95,6 +98,7 @@ export default {
         ctx.lineWidth = c * 0.15;
         ctx.stroke();
         ctx.restore();
+        layout = { ox, oy, c };
         return { x: ox + (pts[0].x + 0.5) * c, y: oy + (pts[0].y + 0.5) * c };
       },
       dispose() {},

@@ -2,8 +2,10 @@
 
 A snake game that **mutates every 5 apples**. Eight worlds, each with its own
 look, topology and controls, then it loops faster. The change is seamless: the
-game never pauses, a portal opens from the snake's head and the snake carries
-on in the new world from the equivalent spot, heading the same way.
+game never pauses. A portal opens at the snake's head; outside it the old world
+keeps running while the snake slides into the portal, inside it the new world
+is already live and the snake comes out at the same spot on screen, heading the
+same way.
 
 | # | World | What changes |
 |---|-------|--------------|
@@ -49,9 +51,8 @@ One-time setup: **Settings → Pages → Build and deployment → Source: GitHub
 - `src/snake.js` — topology-agnostic snake rules.
 - `src/topologies/` — `grid.js` (rectangle / torus when wrapping), `cube.js`.
 - `src/worlds/` — one module per world: topology, input mapping and renderer.
-  `uvOf(cell)` maps cells to normalised board coordinates so the snake can be
-  carried between worlds; `render()` returns the head's screen position (the
-  centre of the portal wipe).
+  `uvOf(cell)` / `screenOf(cell)` let the snake be carried between worlds;
+  `render()` returns the head's screen position (the centre of the portal).
   `index.js` sets the order and `APPLES_PER_WORLD`.
 - `src/main.js` — loop, world switching, HUD and overlays.
 - `vendor/three.module.min.js` — three.js r170 (MIT, see `vendor/three.LICENSE`).

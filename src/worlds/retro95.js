@@ -90,12 +90,15 @@ export default {
   sfx: 'square',
 
   setup(stage) {
+    let layout = null;
     const topology = new GridTopology({ width: W, height: H });
     return {
       topology,
       spawn: { cell: { x: 3, y: H >> 1 }, dir: 1 },
       mapAction: absoluteGrid,
       uvOf: gridUV(W, H),
+      /** Screen position of a cell, from the last rendered layout. */
+      screenOf: (cell) => layout && ({ x: layout.ox + (cell.x + 0.5) * layout.c, y: layout.oy + (cell.y + 0.5) * layout.c }),
       render(view) {
         const { ctx, width, height } = stage;
         ctx.imageSmoothingEnabled = false;
@@ -217,6 +220,7 @@ export default {
           text(ctx, labels[i], sx + 6, sy + 10);
           sx += w + 2;
         });
+        layout = { ox: bx, oy: by, c };
         return { x: bx + (s.head.x + 0.5) * c, y: by + (s.head.y + 0.5) * c };
       },
       dispose() {},
