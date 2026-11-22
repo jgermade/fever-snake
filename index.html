@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Fever Snake</title>
+  <meta name="description" content="A snake game that mutates every 5 apples: neon, retro desktop, 3D cube, pocket LCD, tube maze, terminal, first-person labyrinth and notebook doodle.">
+  <meta name="theme-color" content="#07010f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-phase="title">
+  <main id="stage">
+    <canvas id="c3d" hidden></canvas>
+    <canvas id="c2d"></canvas>
+
+    <header id="hud">
+      <div class="hud-block"><span class="label">World</span><span id="hud-world"></span></div>
+      <div class="hud-block"><span class="label">Apples</span><span id="hud-apples" class="dots"></span></div>
+      <div class="hud-block"><span class="label">Score</span><span id="hud-score">0</span></div>
+      <div class="hud-block"><span class="label">Best</span><span id="hud-best">0</span></div>
+    </header>
+    <div id="hud-buttons">
+      <button id="btn-pause" title="Pause (P)" aria-label="Pause">⏸</button>
+      <button id="btn-mute" title="Mute (M)" aria-label="Mute">🔊</button>
+    </div>
+
+    <section class="overlay" data-phase="title">
+      <div class="panel title-panel">
+        <h1>Fever <span>Snake</span></h1>
+        <p class="tagline">Every 5 apples the world mutates.</p>
+        <div id="world-list" class="chips"></div>
+        <button class="big" data-start>Play</button>
+        <p class="hint">Arrows / WASD or swipe · P pause · M mute · Best: <b id="title-best">0</b></p>
+        <p class="hint small">Tip: pick a world above to practise it.</p>
+      </div>
+    </section>
+
+    <section class="overlay" data-phase="paused" hidden>
+      <div class="panel">
+        <h2>Paused</h2>
+        <p class="hint">Press P, Enter or tap to continue.</p>
+      </div>
+    </section>
+
+    <section class="overlay" data-phase="warp" hidden>
+      <div class="panel warp-panel">
+        <p id="warp-num" class="warp-num"></p>
+        <h2 id="warp-title" class="glitch"></h2>
+        <p id="warp-blurb"></p>
+        <p id="warp-controls" class="hint"></p>
+      </div>
+    </section>
+
+    <section class="overlay" data-phase="over" hidden>
+      <div class="panel over-panel" role="alertdialog" aria-labelledby="over-title">
+        <div class="win-title"><span>SNAKE.EXE</span><span class="x">×</span></div>
+        <h2 id="over-title">Game over</h2>
+        <p id="over-msg"></p>
+        <p class="score-line">Score <b id="over-score">0</b> · Best <b id="over-best">0</b></p>
+        <p id="over-record" class="record" hidden>New record!</p>
+        <button class="big" data-start>Play again</button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

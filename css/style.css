@@ -1,0 +1,273 @@
+:root {
+  --bg: #07010f;
+  --fg: #f4f0ff;
+  --accent: #00f0ff;
+  --accent2: #ff2fb9;
+  --panel: rgba(10, 4, 30, 0.82);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+
+#stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#c2d { pointer-events: none; }
+canvas[hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------- HUD --- */
+#hud {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  font-size: 15px;
+  white-space: nowrap;
+  max-width: calc(100vw - 110px);
+}
+#hud[hidden] { display: none; }
+.hud-block { display: flex; flex-direction: column; align-items: center; padding: 0 8px; }
+.hud-block .label { font-size: 10px; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.08em; }
+#hud-score, #hud-best { font-weight: 700; font-variant-numeric: tabular-nums; }
+.dots { display: flex; gap: 4px; padding-top: 4px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; opacity: 0.6; }
+.dot.on { background: var(--accent2); border-color: var(--accent2); opacity: 1; box-shadow: 0 0 8px var(--accent2); }
+
+#hud-buttons {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  display: flex;
+  gap: 6px;
+  z-index: 3;
+}
+#hud-buttons button {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+body:not([data-phase="playing"]) #btn-pause { visibility: hidden; }
+
+@media (max-width: 560px) {
+  #hud { font-size: 13px; left: 10px; transform: none; }
+  .hud-block { padding: 0 4px; }
+  .hud-block:nth-child(4) { display: none; }
+}
+
+/* ------------------------------------------------------------ overlays --- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 2;
+}
+.overlay[hidden] { display: none; }
+.overlay[data-phase="title"], .overlay[data-phase="over"], .overlay[data-phase="paused"] {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  padding: 24px 28px;
+  text-align: center;
+  max-width: min(640px, 100%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.panel h2 { margin: 0.2em 0 0.4em; font-size: 28px; }
+.panel p { margin: 0.5em 0; }
+.hint { opacity: 0.75; font-size: 14px; }
+.hint.small { font-size: 12px; }
+.win-title { display: none; }
+
+h1 {
+  margin: 0;
+  font-size: clamp(40px, 9vw, 72px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  text-shadow: 0 0 18px var(--accent);
+}
+h1 span { color: var(--accent2); text-shadow: 0 0 18px var(--accent2); }
+.tagline { font-size: 18px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 16px 0; }
+.chip {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip:hover { background: rgba(255, 255, 255, 0.16); }
+.chip b { color: var(--accent2); margin-right: 2px; }
+
+button.big {
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  padding: 12px 36px;
+  margin: 8px 0;
+  border: 0;
+  border-radius: 999px;
+  color: #07010f;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.4);
+}
+
+.score-line { font-size: 18px; }
+.record { color: #ffe600; font-weight: 700; animation: blink 0.6s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0.3; } }
+
+/* Warp banner */
+.overlay[data-phase="warp"] { animation: flash 1.9s ease-out; }
+@keyframes flash {
+  0% { background: rgba(255, 255, 255, 0.9); }
+  15% { background: rgba(0, 0, 0, 0.7); }
+  100% { background: rgba(0, 0, 0, 0.55); }
+}
+.warp-panel { background: transparent; border: 0; box-shadow: none; }
+.warp-num { text-transform: uppercase; letter-spacing: 0.3em; opacity: 0.75; }
+.warp-panel h2 { font-size: clamp(36px, 8vw, 64px); }
+.glitch {
+  position: relative;
+  animation: glitch 0.5s steps(2) 3;
+  text-shadow: 3px 0 var(--accent2), -3px 0 var(--accent);
+}
+@keyframes glitch {
+  0% { transform: translate(0); clip-path: inset(0 0 0 0); }
+  25% { transform: translate(-6px, 2px); clip-path: inset(20% 0 30% 0); }
+  50% { transform: translate(5px, -2px); clip-path: inset(50% 0 10% 0); }
+  75% { transform: translate(-3px, 1px); clip-path: inset(0 0 60% 0); }
+  100% { transform: translate(0); clip-path: inset(0 0 0 0); }
+}
+
+/* ------------------------------------------------------ world themes --- */
+/* Retro 95: beveled grey dialogs */
+body[data-world="retro95"] .panel {
+  font-family: Tahoma, "MS Sans Serif", Verdana, sans-serif;
+  background: #c0c0c0;
+  color: #000;
+  border-radius: 0;
+  border: 2px solid;
+  border-color: #fff #000 #000 #fff;
+  box-shadow: inset -1px -1px #808080, inset 1px 1px #dfdfdf, 4px 4px 0 rgba(0, 0, 0, 0.4);
+  padding: 0 20px 16px;
+}
+body[data-world="retro95"] .win-title {
+  display: flex;
+  justify-content: space-between;
+  margin: 3px -17px 12px;
+  padding: 3px 6px;
+  background: linear-gradient(90deg, #000080, #1084d0);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: left;
+}
+body[data-world="retro95"] .win-title .x {
+  background: #c0c0c0;
+  color: #000;
+  padding: 0 5px;
+  border: 1px solid;
+  border-color: #fff #000 #000 #fff;
+}
+body[data-world="retro95"] .panel h2 { font-size: 16px; }
+body[data-world="retro95"] button.big {
+  color: #000;
+  background: #c0c0c0;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 6px 30px;
+  border: 2px solid;
+  border-color: #fff #000 #000 #fff;
+  box-shadow: none;
+}
+body[data-world="retro95"] .warp-panel { color: #fff; background: transparent; border: 0; box-shadow: none; }
+body[data-world="retro95"] .warp-panel .win-title { display: none; }
+
+/* Pocket LCD */
+body[data-world="pocket"] .panel {
+  font-family: "Courier New", monospace;
+  background: #9bbc0f;
+  color: #0f380f;
+  border: 4px solid #0f380f;
+  border-radius: 6px;
+}
+body[data-world="pocket"] button.big { background: #8b1d5c; color: #fff; box-shadow: none; font-family: inherit; }
+
+/* Terminal */
+body[data-world="terminal"] .panel {
+  font-family: "Courier New", ui-monospace, monospace;
+  background: #020b04;
+  color: #33ff66;
+  border: 1px solid #33ff66;
+  border-radius: 0;
+  text-shadow: 0 0 6px #33ff66;
+}
+body[data-world="terminal"] button.big { background: #33ff66; color: #020b04; border-radius: 0; font-family: inherit; box-shadow: none; }
+
+/* Notebook */
+body[data-world="doodle"] #hud,
+body[data-world="doodle"] .panel {
+  font-family: "Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive;
+  background: #fffdf5;
+  color: #2a3a8a;
+  border: 2px dashed #2a3a8a;
+  border-radius: 14px 22px 12px 26px;
+  backdrop-filter: none;
+}
+body[data-world="doodle"] .dot.on { background: #e33; border-color: #e33; box-shadow: none; }
+body[data-world="doodle"] button.big { background: #e33; color: #fff; box-shadow: none; font-family: inherit; }
+body[data-world="doodle"] #hud-buttons button { background: #2a3a8a; }
+body[data-world="doodle"] .warp-panel { color: #fff; border: 0; background: transparent; }
+
+/* Labyrinth: warm torch tones */
+body[data-world="firstperson"] .dot.on { background: #ffb347; border-color: #ffb347; box-shadow: 0 0 8px #ffb347; }
+body[data-world="tube"] .dot.on { background: #c6ff00; border-color: #c6ff00; box-shadow: 0 0 8px #c6ff00; }
+body[data-world="cube"] .dot.on { background: #ff1e1e; border-color: #ff1e1e; box-shadow: 0 0 8px #ff1e1e; }
+
+@media (prefers-reduced-motion: reduce) {
+  .glitch, .overlay[data-phase="warp"], .record { animation: none; }
+}
