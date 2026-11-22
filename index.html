@@ -45,14 +45,11 @@
       </div>
     </section>
 
-    <section class="overlay" data-phase="warp" hidden>
-      <div class="panel warp-panel">
-        <p id="warp-num" class="warp-num"></p>
-        <h2 id="warp-title" class="glitch"></h2>
-        <p id="warp-blurb"></p>
-        <p id="warp-controls" class="hint"></p>
-      </div>
-    </section>
+    <div id="toast" aria-live="polite">
+      <p id="toast-num"></p>
+      <h2 id="toast-title"></h2>
+      <p id="toast-controls"></p>
+    </div>
 
     <section class="overlay" data-phase="over" hidden>
       <div class="panel over-panel" role="alertdialog" aria-labelledby="over-title">

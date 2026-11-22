@@ -1,7 +1,7 @@
 // World 1: classic snake drawn with neon glow. Borders are deadly.
 import { GridTopology } from '../topologies/grid.js';
 import { fitBoard, segPos } from '../render/util.js';
-import { absoluteGrid } from './grid-input.js';
+import { absoluteGrid, gridUV } from './grid-input.js';
 
 const W = 24;
 const H = 16;
@@ -23,6 +23,7 @@ export default {
       topology,
       spawn: { cell: { x: 4, y: H >> 1 }, dir: 1 },
       mapAction: absoluteGrid,
+      uvOf: gridUV(W, H),
       render(view) {
         const { ctx, width, height } = stage;
         const b = fitBoard(width - 32, height - 120, W, H);
@@ -94,6 +95,7 @@ export default {
         ctx.lineWidth = c * 0.15;
         ctx.stroke();
         ctx.restore();
+        return { x: ox + (pts[0].x + 0.5) * c, y: oy + (pts[0].y + 0.5) * c };
       },
       dispose() {},
     };

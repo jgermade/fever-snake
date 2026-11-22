@@ -7,6 +7,11 @@ export function absoluteGrid(action) {
   return ABSOLUTE[action] ?? null;
 }
 
+/** Normalised board coordinates of a grid cell (used to carry the snake between worlds). */
+export function gridUV(width, height) {
+  return (c) => ({ u: (c.x + 0.5) / width, v: (c.y + 0.5) / height });
+}
+
 /** Left/right turn relative to the current heading; up/down do nothing. */
 export function relativeGrid(action, snake) {
   if (action === 'left') return (snake.dir + 3) % 4;

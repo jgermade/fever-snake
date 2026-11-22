@@ -1,7 +1,7 @@
 // World 6: green phosphor text-mode terminal with ASCII obstacles.
 import { GridTopology, isFullyConnected } from '../topologies/grid.js';
 import { pad, rng } from '../render/util.js';
-import { absoluteGrid } from './grid-input.js';
+import { absoluteGrid, gridUV } from './grid-input.js';
 
 const W = 34;
 const H = 18;
@@ -55,6 +55,7 @@ export default {
       topology,
       spawn: { cell: { x: 3, y: 9 }, dir: 1 },
       mapAction: absoluteGrid,
+      uvOf: gridUV(W, H),
       render(view) {
         const { ctx, width, height } = stage;
         ctx.fillStyle = '#020b04';
@@ -112,6 +113,7 @@ export default {
         ctx.fillRect(0, 0, width, height);
         ctx.fillStyle = `rgba(51,255,102,${0.015 + Math.random() * 0.02})`;
         ctx.fillRect(0, 0, width, height);
+        return { x: ox + (view.snake.head.x + 1.5) * cw, y: oy + (view.snake.head.y + 3.5) * ch };
       },
       dispose() {},
     };

@@ -1,7 +1,7 @@
 // World 2: a 1995-style desktop. The game runs inside a beveled window.
 import { GridTopology } from '../topologies/grid.js';
 import { fitBoard, pad } from '../render/util.js';
-import { absoluteGrid } from './grid-input.js';
+import { absoluteGrid, gridUV } from './grid-input.js';
 
 const W = 22;
 const H = 14;
@@ -95,6 +95,7 @@ export default {
       topology,
       spawn: { cell: { x: 3, y: H >> 1 }, dir: 1 },
       mapAction: absoluteGrid,
+      uvOf: gridUV(W, H),
       render(view) {
         const { ctx, width, height } = stage;
         ctx.imageSmoothingEnabled = false;
@@ -216,6 +217,7 @@ export default {
           text(ctx, labels[i], sx + 6, sy + 10);
           sx += w + 2;
         });
+        return { x: bx + (s.head.x + 0.5) * c, y: by + (s.head.y + 0.5) * c };
       },
       dispose() {},
     };
