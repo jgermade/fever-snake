@@ -159,20 +159,34 @@ button.big {
 .record { color: #ffe600; font-weight: 700; animation: blink 0.6s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0.3; } }
 
-/* Warp banner */
-.overlay[data-phase="warp"] { animation: flash 1.9s ease-out; }
-@keyframes flash {
-  0% { background: rgba(255, 255, 255, 0.9); }
-  15% { background: rgba(0, 0, 0, 0.7); }
-  100% { background: rgba(0, 0, 0, 0.55); }
+/* World-change toast: shown while the game keeps running */
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 2;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 2px #000;
+  white-space: nowrap;
 }
-.warp-panel { background: transparent; border: 0; box-shadow: none; }
-.warp-num { text-transform: uppercase; letter-spacing: 0.3em; opacity: 0.75; }
-.warp-panel h2 { font-size: clamp(36px, 8vw, 64px); }
-.glitch {
-  position: relative;
-  animation: glitch 0.5s steps(2) 3;
-  text-shadow: 3px 0 var(--accent2), -3px 0 var(--accent);
+#toast p { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.25em; opacity: 0.85; }
+#toast #toast-controls { text-transform: none; letter-spacing: 0; font-size: 14px; }
+#toast h2 {
+  margin: 2px 0;
+  font-size: clamp(28px, 6vw, 48px);
+  text-shadow: 3px 0 var(--accent2), -3px 0 var(--accent), 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+#toast.show { animation: toast 2.8s ease-out forwards; }
+#toast.show h2 { animation: glitch 0.5s steps(2) 2; }
+@keyframes toast {
+  0% { opacity: 0; transform: translate(-50%, 20px); }
+  10% { opacity: 1; transform: translate(-50%, 0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
 }
 @keyframes glitch {
   0% { transform: translate(0); clip-path: inset(0 0 0 0); }
@@ -181,6 +195,7 @@ button.big {
   75% { transform: translate(-3px, 1px); clip-path: inset(0 0 60% 0); }
   100% { transform: translate(0); clip-path: inset(0 0 0 0); }
 }
+body:not([data-phase="playing"]) #toast { visibility: hidden; }
 
 /* ------------------------------------------------------ world themes --- */
 /* Retro 95: beveled grey dialogs */
@@ -224,8 +239,6 @@ body[data-world="retro95"] button.big {
   border-color: #fff #000 #000 #fff;
   box-shadow: none;
 }
-body[data-world="retro95"] .warp-panel { color: #fff; background: transparent; border: 0; box-shadow: none; }
-body[data-world="retro95"] .warp-panel .win-title { display: none; }
 
 /* Pocket LCD */
 body[data-world="pocket"] .panel {
@@ -261,7 +274,6 @@ body[data-world="doodle"] .panel {
 body[data-world="doodle"] .dot.on { background: #e33; border-color: #e33; box-shadow: none; }
 body[data-world="doodle"] button.big { background: #e33; color: #fff; box-shadow: none; font-family: inherit; }
 body[data-world="doodle"] #hud-buttons button { background: #2a3a8a; }
-body[data-world="doodle"] .warp-panel { color: #fff; border: 0; background: transparent; }
 
 /* Labyrinth: warm torch tones */
 body[data-world="firstperson"] .dot.on { background: #ffb347; border-color: #ffb347; box-shadow: 0 0 8px #ffb347; }
@@ -269,5 +281,5 @@ body[data-world="tube"] .dot.on { background: #c6ff00; border-color: #c6ff00; bo
 body[data-world="cube"] .dot.on { background: #ff1e1e; border-color: #ff1e1e; box-shadow: 0 0 8px #ff1e1e; }
 
 @media (prefers-reduced-motion: reduce) {
-  .glitch, .overlay[data-phase="warp"], .record { animation: none; }
+  #toast.show h2, .record { animation: none; }
 }

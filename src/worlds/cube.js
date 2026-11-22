@@ -3,7 +3,7 @@
 import * as THREE from '../render/three.js';
 import { CubeTopology, rotate90, vec } from '../topologies/cube.js';
 import { damp } from '../render/util.js';
-import { disposeScene, gridTexture, starField } from '../render/three-util.js';
+import { disposeScene, gridTexture, starField, toScreen } from '../render/three-util.js';
 
 const N = 8;
 const MAX_SEGMENTS = 6 * N * N;
@@ -86,6 +86,13 @@ export default {
         const right = vec.cross(up, n);
         return { up, down: vec.neg(up), right, left: vec.neg(right) }[action] ?? null;
       },
+      // Screen-like coordinates of a cell on the face the camera looks at.
+      uvOf(cell) {
+        const right = vec.cross(control.up, cell.n);
+        return { u: (vec.dot(cell.p, right) / N + 1) / 2, v: (1 - vec.dot(cell.p, control.up) / N) / 2 };
+      },
+      // A snake arriving from another world lands on the face in view.
+      placeCells: topology.cells().filter((c) => c.n[2] === 1),
       afterStep(snake, from, to) {
         if (!vec.eq(from.n, to.n)) control.up = rotate90(control.up, vec.cross(from.n, to.n));
       },
@@ -139,6 +146,7 @@ export default {
         camera.fov = camera.aspect < 0.8 ? 70 : 50;
         camera.updateProjectionMatrix();
         gl.render(scene, camera);
+        return toScreen(head.position, camera, stage);
       },
       dispose() {
         disposeScene(scene);

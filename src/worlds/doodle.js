@@ -2,7 +2,7 @@
 // hand-drawn animation.
 import { GridTopology } from '../topologies/grid.js';
 import { fitBoard, rng, segPos } from '../render/util.js';
-import { absoluteGrid } from './grid-input.js';
+import { absoluteGrid, gridUV } from './grid-input.js';
 
 const W = 22;
 const H = 14;
@@ -54,6 +54,7 @@ export default {
       topology,
       spawn: { cell: { x: 3, y: 7 }, dir: 1 },
       mapAction: absoluteGrid,
+      uvOf: gridUV(W, H),
       render(view) {
         const { ctx, width, height } = stage;
         const seed = Math.floor(view.time * 7);
@@ -170,6 +171,7 @@ export default {
         ctx.rotate(-0.02);
         ctx.fillText("my snake :)", 0, 0);
         ctx.restore();
+        return { x: hx, y: hy };
       },
       dispose() {},
     };

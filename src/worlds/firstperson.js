@@ -4,7 +4,7 @@ import * as THREE from '../render/three.js';
 import { GridTopology, isFullyConnected } from '../topologies/grid.js';
 import { damp, lerp, rng } from '../render/util.js';
 import { disposeScene } from '../render/three-util.js';
-import { relativeGrid } from './grid-input.js';
+import { absoluteGrid, gridUV, relativeGrid } from './grid-input.js';
 
 const S = 17;
 const SPAWN = { x: 1, y: S - 2 };
@@ -124,6 +124,8 @@ export default {
       topology,
       spawn: { cell: { ...SPAWN }, dir: 1 },
       mapAction: relativeGrid,
+      placeMap: absoluteGrid,
+      uvOf: gridUV(S, S),
       render(view) {
         const s = view.snake;
         const a = view.alpha;
@@ -179,6 +181,7 @@ export default {
           ctx.fillStyle = '#ff3030';
           ctx.fillRect(mx + view.apple.x * cell, my + view.apple.y * cell, cell, cell);
         }
+        return { x: stage.width / 2, y: stage.height * 0.62 };
       },
       dispose() {
         disposeScene(scene);

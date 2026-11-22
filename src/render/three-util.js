@@ -57,3 +57,9 @@ export function starField(count = 1500, radius = 120) {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.6, sizeAttenuation: true }));
 }
+
+/** Projects a world position to CSS pixel coordinates on the stage. */
+export function toScreen(pos, camera, stage) {
+  const v = pos.clone().project(camera);
+  return { x: ((v.x + 1) / 2) * stage.width, y: ((1 - v.y) / 2) * stage.height };
+}

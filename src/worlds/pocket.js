@@ -2,7 +2,7 @@
 // Edges wrap around.
 import { GridTopology } from '../topologies/grid.js';
 import { pad } from '../render/util.js';
-import { absoluteGrid } from './grid-input.js';
+import { absoluteGrid, gridUV } from './grid-input.js';
 
 const W = 20;
 const H = 16;
@@ -63,6 +63,7 @@ export default {
       topology,
       spawn: { cell: { x: 4, y: 8 }, dir: 1 },
       mapAction: absoluteGrid,
+      uvOf: gridUV(W, H),
       render(view) {
         // --- LCD contents at native resolution ---
         g.fillStyle = PAL[3];
@@ -124,6 +125,7 @@ export default {
         ctx.fillText('FEVER', bx, by + bh + 28);
         ctx.fillStyle = '#7a1d5c';
         ctx.fillText(' BOY', bx + ctx.measureText('FEVER').width, by + bh + 28);
+        return { x: sx + (view.snake.head.x * 8 + 4) * scale, y: sy + (16 + view.snake.head.y * 8 + 4) * scale };
       },
       dispose() {},
     };

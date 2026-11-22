@@ -7,7 +7,8 @@ import * as THREE from './render/three.js';
 
 const $ = (sel) => document.querySelector(sel);
 const BEST_KEY = 'fever-snake.best';
-const WARP_MS = 1900;
+const WARP_SECONDS = 1.2; // length of the portal wipe between worlds
+const ACTIONS = ['up', 'right', 'down', 'left'];
 
 // ---------------------------------------------------------------- stage ---
 const stage = (() => {
@@ -19,6 +20,7 @@ const stage = (() => {
   const s = {
     root,
     canvas,
+    glCanvas,
     ctx,
     width: 0,
     height: 0,
@@ -54,7 +56,7 @@ const stage = (() => {
 
 // ----------------------------------------------------------------- state ---
 const game = {
-  phase: 'title', // title | playing | paused | warp | over
+  phase: 'title', // title | playing | paused | dying | over
   worldIndex: 0,
   loop: 0,
   world: null,
@@ -68,6 +70,10 @@ const game = {
   time: 0,
   worldTime: 0,
   best: readBest(),
+  pendingWarp: false,
+  headScreen: null,
+  // Portal wipe: a snapshot of the previous world that is cut open from the head.
+  transition: { active: false, elapsed: 0, snap: document.createElement('canvas'), mask: document.createElement('canvas') },
 };
 
 function readBest() {
@@ -94,18 +100,65 @@ function tickMs() {
   return Math.max(55, base);
 }
 
-function enterWorld(index, length) {
+/** Which arrow key the snake is currently heading along, on screen. */
+function screenAction(inst, snake) {
+  const map = inst.placeMap ?? inst.mapAction;
+  for (const a of ACTIONS) {
+    const d = map(a, snake);
+    if (d != null && inst.topology.sameDir(d, snake.dir)) return a;
+  }
+  return 'right';
+}
+
+/**
+ * Finds where a snake arriving from another world should appear: the free
+ * cell closest to the same spot on the board, heading the same way on screen,
+ * with a few free cells ahead so the arrival is never an instant crash.
+ */
+function placeSnake(inst, carry) {
+  if (!carry || !inst.uvOf) return inst.spawn;
+  const topo = inst.topology;
+  const map = inst.placeMap ?? inst.mapAction;
+  const near = (inst.placeCells ?? topo.cells())
+    .map((cell) => {
+      const p = inst.uvOf(cell);
+      return [cell, (p.u - carry.u) ** 2 + (p.v - carry.v) ** 2];
+    })
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, 80);
+  for (const action of [carry.action, ...ACTIONS.filter((a) => a !== carry.action)]) {
+    for (const [cell] of near) {
+      const dir = map(action, { head: cell, dir: null });
+      if (dir == null) continue;
+      let c = cell;
+      let d = dir;
+      let ok = true;
+      for (let k = 0; k < 4 && ok; k++) {
+        const r = topo.step(c, d);
+        if (!r) ok = false;
+        else [c, d] = [r.cell, r.dir];
+      }
+      if (ok) return { cell, dir };
+    }
+  }
+  return inst.spawn;
+}
+
+function enterWorld(index, length, carry = null) {
   game.inst?.dispose();
   stage.beginWorld();
   game.worldIndex = index;
   game.world = WORLDS[index];
   game.inst = game.world.setup(stage);
-  game.snake = new Snake(game.inst.topology, game.inst.spawn, length);
+  game.snake = new Snake(game.inst.topology, placeSnake(game.inst, carry), length);
   game.apple = randomFreeCell(game.inst.topology, game.snake);
   game.applesInWorld = 0;
   game.acc = 0;
   game.alpha = 0;
-  game.worldTime = 0;
+  // Arriving through a portal: no "get ready" pause, keep moving.
+  game.worldTime = carry ? (game.world.startDelay ?? 0.7) : 0;
+  game.pendingWarp = false;
+  game.headScreen = null;
   document.body.dataset.world = game.world.id;
   $('#hud').hidden = !game.world.hud;
   updateHud();
@@ -116,6 +169,7 @@ function startGame(index = 0) {
   sfx.start();
   game.score = 0;
   game.loop = 0;
+  game.transition.active = false;
   enterWorld(index, 3);
   setPhase('playing');
 }
@@ -138,7 +192,7 @@ function tick() {
   sfx.eat(game.world.sfx, game.applesInWorld);
   if (game.applesInWorld >= APPLES_PER_WORLD) {
     game.apple = null;
-    warp();
+    game.pendingWarp = true; // switched after this frame is drawn
   } else {
     game.apple = randomFreeCell(inst.topology, snake);
   }
@@ -158,22 +212,96 @@ function gameOver() {
   updateHud();
 }
 
+/** Swaps to the next world without stopping the game. */
 function warp() {
   const next = (game.worldIndex + 1) % WORLDS.length;
-  const nextLoop = next === 0 ? game.loop + 1 : game.loop;
   const w = WORLDS[next];
+  if (next === 0) game.loop += 1;
   sfx.warp();
-  $('#warp-num').textContent = `World ${next + 1} / ${WORLDS.length}${nextLoop ? ` · Loop ${nextLoop + 1}` : ''}`;
-  $('#warp-title').textContent = w.title;
-  $('#warp-blurb').textContent = w.blurb;
-  $('#warp-controls').textContent = w.controls;
-  setPhase('warp');
-  const length = game.snake.length;
-  setTimeout(() => {
-    game.loop = nextLoop;
-    enterWorld(next, length);
-    setPhase('playing');
-  }, WARP_MS);
+
+  // Freeze the last frame of the old world (3D canvas below, 2D on top).
+  const t = game.transition;
+  t.snap.width = t.mask.width = stage.canvas.width;
+  t.snap.height = t.mask.height = stage.canvas.height;
+  const g = t.snap.getContext('2d');
+  if (!stage.glCanvas.hidden) g.drawImage(stage.glCanvas, 0, 0, t.snap.width, t.snap.height);
+  g.drawImage(stage.canvas, 0, 0);
+  t.from = game.headScreen;
+  t.elapsed = 0;
+  t.active = true;
+
+  const head = game.snake.head;
+  const carry = game.inst.uvOf ? { ...game.inst.uvOf(head), action: screenAction(game.inst, game.snake) } : null;
+  enterWorld(next, game.snake.length, carry);
+
+  $('#toast-num').textContent = `World ${next + 1} / ${WORLDS.length}${game.loop ? ` · Loop ${game.loop + 1}` : ''}`;
+  $('#toast-title').textContent = w.title;
+  $('#toast-controls').textContent = w.controls;
+  const toast = $('#toast');
+  toast.classList.remove('show');
+  void toast.offsetWidth; // restart the CSS animation
+  toast.classList.add('show');
+}
+
+/** Draws the old world's snapshot with a growing hole centred on the head. */
+function drawTransition(dt) {
+  const t = game.transition;
+  if (!t.active) return;
+  if (game.phase === 'playing') t.elapsed += dt;
+  const k = Math.min(1, t.elapsed / WARP_SECONDS);
+  if (k >= 1) {
+    t.active = false;
+    return;
+  }
+  const { width, height, dpr, ctx } = stage;
+  const c = game.headScreen ?? t.from ?? { x: width / 2, y: height / 2 };
+  const maxR = Math.hypot(Math.max(c.x, width - c.x), Math.max(c.y, height - c.y));
+  const ease = k * k * (3 - 2 * k);
+  const r = 18 + ease * maxR;
+  const wobble = (a) => 1 + 0.06 * Math.sin(a * 7 + t.elapsed * 14);
+
+  const m = t.mask.getContext('2d');
+  m.globalCompositeOperation = 'source-over';
+  m.clearRect(0, 0, t.mask.width, t.mask.height);
+  m.drawImage(t.snap, 0, 0);
+  m.globalCompositeOperation = 'destination-out';
+  m.beginPath();
+  for (let i = 0; i <= 48; i++) {
+    const a = (i / 48) * Math.PI * 2;
+    const rr = r * wobble(a) * dpr;
+    const x = c.x * dpr + Math.cos(a) * rr;
+    const y = c.y * dpr + Math.sin(a) * rr;
+    if (i) m.lineTo(x, y);
+    else m.moveTo(x, y);
+  }
+  m.fill();
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1 - ease * 0.35;
+  ctx.drawImage(t.mask, 0, 0);
+  ctx.restore();
+
+  // Glowing portal rim
+  ctx.save();
+  ctx.globalAlpha = 1 - k;
+  ctx.lineWidth = 6;
+  ctx.shadowBlur = 24;
+  for (const [color, scale] of [['#00f0ff', 1], ['#ff2fb9', 0.96]]) {
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    for (let i = 0; i <= 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      const rr = r * scale * wobble(a);
+      const x = c.x + Math.cos(a) * rr;
+      const y = c.y + Math.sin(a) * rr;
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function togglePause() {
@@ -228,14 +356,14 @@ function frame(now) {
     game.worldTime += dt;
     if (game.worldTime > (game.world.startDelay ?? 0.7)) game.acc += dt * 1000;
     const ms = tickMs();
-    while (game.acc >= ms && game.phase === 'playing') {
+    while (game.acc >= ms && game.phase === 'playing' && !game.pendingWarp) {
       game.acc -= ms;
       tick();
     }
     game.alpha = game.phase === 'playing' ? game.acc / ms : 1;
   }
   stage.ctx.clearRect(0, 0, stage.width, stage.height);
-  game.inst?.render({
+  game.headScreen = game.inst?.render({
     snake: game.snake,
     apple: game.apple,
     alpha: game.snake.alive ? game.alpha : 1,
@@ -249,7 +377,9 @@ function frame(now) {
     worldIndex: game.worldIndex,
     worldCount: WORLDS.length,
     phase: game.phase,
-  });
+  }) ?? null;
+  drawTransition(dt);
+  if (game.pendingWarp && game.phase === 'playing') warp();
   requestAnimationFrame(frame);
 }
 

@@ -3,7 +3,8 @@
 import * as THREE from '../render/three.js';
 import { GridTopology } from '../topologies/grid.js';
 import { damp, lerpWrap, rng } from '../render/util.js';
-import { disposeScene, gridTexture } from '../render/three-util.js';
+import { disposeScene, gridTexture, toScreen } from '../render/three-util.js';
+import { gridUV } from './grid-input.js';
 
 const A = 16; // cells around the tube (x)
 const L = 72; // cells along the tube (y)
@@ -127,6 +128,7 @@ export default {
       topology,
       spawn: { cell: { ...SPAWN }, dir: 2 },
       control,
+      uvOf: gridUV(A, L),
       mapAction(action) {
         const f = control.along > 0;
         return { up: f ? 2 : 0, down: f ? 0 : 2, right: f ? 1 : 3, left: f ? 3 : 1 }[action] ?? null;
@@ -179,6 +181,7 @@ export default {
         camera.fov = camera.aspect < 0.8 ? 95 : 75;
         camera.updateProjectionMatrix();
         gl.render(scene, camera);
+        return toScreen(head.position, camera, stage);
       },
       dispose() {
         disposeScene(scene);
