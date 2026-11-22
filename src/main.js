@@ -5,12 +5,19 @@ import { makeOrder } from './order.js';
 import { MIN_RUNWAY, placeSnake, runway, screenAction } from './placement.js';
 import { bindInput } from './input.js';
 import { sfx } from './audio.js';
+import { music } from './music.js';
+import { addShake, burst, clearJuice, drawGoldenSparkle, drawJuice, popup, rainbowBurst, shakeOffset } from './juice.js';
 import * as THREE from './render/three.js';
 
 const $ = (sel) => document.querySelector(sel);
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const BEST_KEY = 'fever-snake.best';
 const WARP_SECONDS = 1.6; // length of the portal wipe between worlds
 const ARRIVAL_TICKS = 6; // slower first ticks after arriving in a new world
+const COMBO_WINDOW = 3.5; // seconds between apples to keep a combo going
+const FEVER_COMBO = 3; // apples in a row that trigger FEVER
+const FEVER_SECONDS = 7;
+const GOLDEN_CHANCE = 0.12;
 
 // ---------------------------------------------------------------- stage ---
 const stage = (() => {
@@ -40,6 +47,13 @@ const stage = (() => {
     beginWorld() {
       glCanvas.hidden = true;
     },
+    /** Screen shake: offsets both canvases. */
+    shake(x, y) {
+      if (reducedMotion.matches) x = y = 0;
+      const t = x || y ? `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)` : '';
+      canvas.style.transform = t;
+      glCanvas.style.transform = t;
+    },
     resize() {
       s.dpr = Math.min(window.devicePixelRatio || 1, 2);
       s.width = root.clientWidth;
@@ -61,6 +75,10 @@ const game = {
   phase: 'title', // title | playing | paused | dying | over
   worldIndex: 0, // index into WORLDS
   arrival: 0, // remaining slow ticks after a world change
+  combo: 0,
+  lastEat: -99,
+  fever: 0, // seconds of FEVER left
+  golden: false, // the current apple is golden
   order: [], // shuffled WORLDS indices for the current loop
   stage: 0, // position in `order` (shown as "World k / N")
   loop: 0,
@@ -101,11 +119,39 @@ function saveBest() {
   return true;
 }
 
+function spawnApple() {
+  game.apple = randomFreeCell(game.inst.topology, game.snake);
+  game.golden = Math.random() < GOLDEN_CHANCE;
+}
+
+/** Keys that count as eating the apple (a world may add more, e.g. a mirror). */
+function appleKeys() {
+  if (!game.apple) return null;
+  const { inst } = game;
+  return inst.appleCells ? new Set(inst.appleCells(game.apple).map((c) => inst.topology.key(c))) : inst.topology.key(game.apple);
+}
+
+function setFever(seconds) {
+  const was = game.fever > 0;
+  game.fever = Math.max(0, seconds);
+  const on = game.fever > 0;
+  document.body.classList.toggle('fever', on);
+  music.setFever(on);
+  if (on && !was) {
+    sfx.warp();
+    addShake(10);
+    rainbowBurst(game.headScreen, 60);
+    popup(game.headScreen, 'FEVER!', '#ffec27');
+  }
+}
+
 function tickMs() {
   const base = game.world.tickMs * Math.pow(0.97, game.applesInWorld) * Math.pow(0.88, game.loop);
   // Arriving through a portal: start at ~1.9x the tick time and ease back.
   const arrival = 1 + 0.9 * (game.arrival / ARRIVAL_TICKS);
-  return Math.max(55, base) * arrival;
+  const fever = game.fever > 0 ? 0.85 : 1;
+  const world = game.inst.tickScale?.(game.snake) ?? 1; // e.g. time dilation
+  return Math.max(55, base * fever) * arrival * world;
 }
 
 function makeView(snake, apple, alpha, dt = 0) {
@@ -160,7 +206,8 @@ function enterWorld(index, length, carry = null) {
     spawn = placeSnake(game.inst, carry);
   }
   game.snake = new Snake(game.inst.topology, spawn, length);
-  game.apple = randomFreeCell(game.inst.topology, game.snake);
+  spawnApple();
+  music.play(game.world);
   game.applesInWorld = 0;
   if (!carry) game.acc = 0; // through a portal the tick rhythm carries on
   game.arrival = carry ? ARRIVAL_TICKS : 0;
@@ -180,6 +227,10 @@ function startGame(index = null) {
   sfx.start();
   game.score = 0;
   game.loop = 0;
+  game.combo = 0;
+  game.lastEat = -99;
+  clearJuice();
+  setFever(0);
   game.order = makeOrder(WORLDS, Math.random, { first: index });
   game.stage = 0;
   enterWorld(game.order[0], 3);
@@ -194,27 +245,49 @@ function setPhase(phase) {
 
 function tick() {
   const { snake, inst } = game;
-  const appleKey = game.apple ? inst.topology.key(game.apple) : null;
-  const res = snake.step(appleKey, inst.mapAction, inst.afterStep);
+  const res = snake.step(appleKeys(), inst.mapAction, inst.afterStep, inst.collides);
   if (res === 'dead') return gameOver();
   if (game.transition.active) game.transition.drained += 1;
   if (game.arrival > 0) game.arrival -= 1;
   if (res !== 'ate') return;
 
-  game.score += 1 + game.loop;
+  // Combo / FEVER bookkeeping
+  game.combo = game.time - game.lastEat <= COMBO_WINDOW ? game.combo + 1 : 1;
+  game.lastEat = game.time;
+  const golden = game.golden;
+  const mult = game.fever > 0 ? 3 : 1;
+  const points = (1 + game.loop) * mult + (golden ? 5 : 0);
+  game.score += points;
   game.applesInWorld += 1;
-  sfx.eat(game.world.sfx, game.applesInWorld);
+  sfx.eat(game.world.sfx, game.applesInWorld + game.combo);
+  const at = game.headScreen;
+  if (golden) {
+    burst(at, { count: 40, colors: ['#ffd700', '#fff4b0', '#ffae00'], speed: 300, size: 5 });
+    setFever(Math.max(game.fever, FEVER_SECONDS));
+  } else if (game.fever > 0) {
+    rainbowBurst(at);
+    game.fever = Math.min(12, game.fever + 1.5);
+  } else {
+    burst(at);
+  }
+  if (game.combo >= FEVER_COMBO && game.fever <= 0) setFever(FEVER_SECONDS);
+  addShake(game.fever > 0 ? 7 : 3);
+  popup(at, `+${points}${game.combo > 1 ? `  x${game.combo}` : ''}`, golden ? '#ffd700' : game.fever > 0 ? '#ffec27' : '#ffffff');
   if (game.applesInWorld >= APPLES_PER_WORLD) {
     game.apple = null;
     game.pendingWarp = true; // switched after this frame is drawn
   } else {
-    game.apple = randomFreeCell(inst.topology, snake);
+    spawnApple();
   }
   updateHud();
 }
 
 function gameOver() {
   sfx.die();
+  music.stop();
+  setFever(0);
+  addShake(14);
+  burst(game.headScreen, { count: 30, colors: ['#ff3355', '#ffffff', '#ff9f1c'], speed: 260 });
   const record = saveBest();
   $('#over-title').textContent = game.world.deathTitle ?? 'Game over';
   $('#over-msg').textContent = game.world.deathMessage ?? 'The snake crashed.';
@@ -365,8 +438,13 @@ function renderTransition(view, dt) {
 }
 
 function togglePause() {
-  if (game.phase === 'playing') setPhase('paused');
-  else if (game.phase === 'paused') setPhase('playing');
+  if (game.phase === 'playing') {
+    setPhase('paused');
+    music.stop();
+  } else if (game.phase === 'paused') {
+    setPhase('playing');
+    music.play(game.world);
+  }
 }
 
 // ------------------------------------------------------------------- HUD ---
@@ -383,6 +461,9 @@ function updateHud() {
     }),
   );
   $('#btn-mute').textContent = sfx.muted ? '🔇' : '🔊';
+  dots.classList.toggle('golden', Boolean(game.golden && game.apple));
+  const combo = $('#hud-combo');
+  combo.textContent = game.combo > 1 ? `x${game.combo}` : '';
 }
 
 // ----------------------------------------------------------------- input ---
@@ -422,12 +503,28 @@ function frame(now) {
       tick();
     }
     game.alpha = game.phase === 'playing' ? game.acc / ms : 1;
+    if (game.fever > 0) {
+      game.fever -= dt;
+      if (game.fever <= 0) setFever(0);
+    }
+    if (game.combo > 0 && game.time - game.lastEat > COMBO_WINDOW) {
+      game.combo = 0;
+      updateHud();
+    }
   }
+  const meter = $('#fever-meter');
+  meter.style.setProperty('--fever', String(Math.min(1, game.fever / FEVER_SECONDS)));
+  const off = shakeOffset(dt);
+  stage.shake(off.x, off.y);
   stage.ctx.clearRect(0, 0, stage.width, stage.height);
   const view = makeView(game.snake, game.apple, game.snake.alive ? game.alpha : 1, dt);
   try {
     const head = game.transition.active ? renderTransition(view, dt) : game.inst?.render(view);
     game.headScreen = head ?? null;
+    if (game.golden && game.apple && game.inst.screenOf && !game.transition.active) {
+      drawGoldenSparkle(stage.ctx, game.inst.screenOf(game.apple), game.time);
+    }
+    drawJuice(stage.ctx, dt);
     if (game.pendingWarp && game.phase === 'playing') warp();
   } catch (err) {
     // A rendering bug must never freeze the game loop.

@@ -19,9 +19,10 @@
     <header id="hud">
       <div class="hud-block"><span class="label">World</span><span id="hud-world"></span></div>
       <div class="hud-block"><span class="label">Apples</span><span id="hud-apples" class="dots"></span></div>
-      <div class="hud-block"><span class="label">Score</span><span id="hud-score">0</span></div>
+      <div class="hud-block"><span class="label">Score</span><span><span id="hud-score">0</span><span id="hud-combo" class="combo"></span></span></div>
       <div class="hud-block"><span class="label">Best</span><span id="hud-best">0</span></div>
     </header>
+    <div id="fever-meter" aria-hidden="true"><span class="fever-label">FEVER ×3</span><span class="fever-bar"></span></div>
     <div id="hud-buttons">
       <button id="btn-pause" title="Pause (P)" aria-label="Pause">⏸</button>
       <button id="btn-mute" title="Mute (M)" aria-label="Mute">🔊</button>
@@ -34,6 +35,7 @@
         <div id="world-list" class="chips"></div>
         <button class="big" data-start>Play</button>
         <p class="hint">Arrows / WASD or swipe · P pause · M mute · Best: <b id="title-best">0</b></p>
+        <p class="hint small">Eat 3 apples in a row for <b class="fever-word">FEVER</b> (×3 points). Golden apples: +5 and instant FEVER.</p>
         <p class="hint small">Tip: pick a world above to practise it.</p>
       </div>
     </section>

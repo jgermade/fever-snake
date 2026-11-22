@@ -88,6 +88,48 @@ body:not([data-phase="playing"]) #btn-pause { visibility: hidden; }
   .hud-block:nth-child(4) { display: none; }
 }
 
+/* ------------------------------------------------------------- FEVER --- */
+#hud-apples.golden::after { content: '★'; color: #ffd700; text-shadow: 0 0 8px #ffd700; margin-left: 4px; line-height: 10px; }
+.combo { margin-left: 6px; color: #ffec27; font-weight: 800; font-size: 13px; }
+#fever-meter {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 62px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(280px, 60vw);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 1;
+}
+body.fever #fever-meter { opacity: 1; }
+.fever-label {
+  display: block;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.15em;
+  color: #fff;
+  text-shadow: 0 0 10px #ff2fb9, 0 0 2px #000;
+  animation: fever-pulse 0.35s ease-in-out infinite alternate;
+}
+.fever-bar {
+  display: block;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  width: calc(var(--fever, 0) * 100%);
+  background: linear-gradient(90deg, #ff004d, #ffa300, #ffec27, #00e436, #29adff, #ff77a8);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+}
+.fever-word { background: linear-gradient(90deg, #ff004d, #ffec27, #29adff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+body.fever #stage canvas { animation: fever-hue 1.6s linear infinite; }
+@keyframes fever-hue {
+  from { filter: hue-rotate(0deg) saturate(1.5); }
+  to { filter: hue-rotate(360deg) saturate(1.5); }
+}
+@keyframes fever-pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+
 /* ------------------------------------------------------------ overlays --- */
 .overlay {
   position: absolute;
@@ -282,5 +324,6 @@ body[data-world="tube"] .dot.on { background: #c6ff00; border-color: #c6ff00; bo
 body[data-world="cube"] .dot.on { background: #ff1e1e; border-color: #ff1e1e; box-shadow: 0 0 8px #ff1e1e; }
 
 @media (prefers-reduced-motion: reduce) {
-  #toast.show h2, .record { animation: none; }
+  #toast.show h2, .record, .fever-label { animation: none; }
+  body.fever #stage canvas { animation: none; filter: saturate(1.6); }
 }

@@ -63,9 +63,12 @@ export class Snake {
 
   /**
    * Advances one tick.
+   * @param appleKey key of the apple cell, or a Set of keys that all count as
+   *   eating it (e.g. the mirrored twin's cell), or null
+   * @param collides optional world rule: (cell, snake) => true kills the snake
    * @returns {'moved' | 'ate' | 'dead'}
    */
-  step(appleKey, mapAction, afterStep) {
+  step(appleKey, mapAction, afterStep, collides) {
     if (!this.alive) return 'dead';
     this.consumeInput(mapAction);
     const from = this.head;
@@ -75,7 +78,8 @@ export class Snake {
     if (!res) return this.die();
 
     const k = this.topo.key(res.cell);
-    const ate = k === appleKey;
+    const ate = appleKey instanceof Set ? appleKey.has(k) : k === appleKey;
+    if (collides?.(res.cell, this)) return this.die();
     if (ate) this.grow += 1;
     const grows = this.grow > 0;
     // The tail leaves its cell this tick unless the snake is growing.

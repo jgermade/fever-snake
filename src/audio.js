@@ -8,7 +8,8 @@ try {
   /* storage unavailable */
 }
 
-function ac() {
+/** Shared AudioContext (created lazily, resumed on use). */
+export function ac() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
@@ -33,6 +34,8 @@ function tone(freq, { at = 0, dur = 0.1, type = 'square', vol = 0.08, slide = 0 
   osc.start(t);
   osc.stop(t + dur + 0.02);
 }
+
+export const isMuted = () => muted;
 
 export const sfx = {
   unlock() {

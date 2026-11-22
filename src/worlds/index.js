@@ -19,10 +19,13 @@ import deepspace from './deepspace.js';
 import vertigo from './vertigo.js';
 import checkmate from './checkmate.js';
 import aquarium from './aquarium.js';
+import klein from './klein.js';
+import blackhole from './blackhole.js';
+import mirror from './mirror.js';
 
 export const APPLES_PER_WORLD = 5;
 export const WORLDS = [
   neon, retro95, cube, pocket, spreadsheet, tube, terminal,
   portals, planet, isometric, firstperson, lightsout, mobius, doodle,
-  deepspace, vertigo, checkmate, aquarium,
+  deepspace, vertigo, checkmate, aquarium, klein, blackhole, mirror,
 ];

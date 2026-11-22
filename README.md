@@ -1,11 +1,17 @@
 # Fever Snake
 
-A snake game that **mutates every 5 apples**. Eighteen worlds, each with its
+A snake game that **mutates every 5 apples**. Twenty-one worlds, each with its
 own look, topology and controls, played **in a random order** (a new shuffle
 every loop, never two 3D worlds in a row), then it loops faster. The change is
 seamless: the game never pauses. A portal opens at the snake's head; outside it
 the old world keeps running while the snake slides into it, inside it the new
 world is already live and the snake comes out at the same spot on screen.
+**FEVER:** eat 3 apples in a row (less than 3.5 s apart) and the game goes
+FEVER for 7 s: x3 points, rainbow screen, faster music, extra time per apple.
+Rare **golden apples** give +5 and instant FEVER. Every world has its own
+procedurally composed chiptune loop, and eating pops particles and shakes the
+screen.
+
 Arrivals are fair: the snake is placed with a long free runway ahead (never
 facing a wall or obstacle) and its first moves are slowed down.
 
@@ -29,6 +35,9 @@ facing a wall or obstacle) and its first moves are slowed down.
 | Vertigo | The board turns 90° every few seconds; arrows follow the screen |
 | Checkmate | A giant chessboard; the pieces are obstacles |
 | Aquarium | An eel among swaying kelp, coral, bubbles and fish |
+| Klein Bottle | Left/right edges glued, top/bottom glued with a mirror flip (chalkboard) |
+| Black Hole | Gravitational lensing warps the board; time slows near the horizon |
+| Mirror Twins | You steer two snakes at once: you and your reflection |
 
 Controls: arrows / WASD or swipe, `P`/`Space` pause, `M` mute. On touch screens
 you can steer continuously: keep the finger down and draw the path (an "L"
@@ -70,7 +79,10 @@ One-time setup: **Settings → Pages → Build and deployment → Source: GitHub
   `render()` returns the head's screen position (the centre of the portal).
   `index.js` lists them and sets `APPLES_PER_WORLD`; `src/order.js` shuffles
   the order per run (3D worlds, `three: true`, are never adjacent);
-  `src/placement.js` picks a fair arrival cell.
+  `src/placement.js` picks a fair arrival cell. Worlds can also define
+  `appleCells`, `collides` and `tickScale` hooks (Mirror Twins, Black Hole).
+- `src/music.js` — procedural per-world chiptune; `src/juice.js` — particles,
+  score popups, screen shake.
 - `src/main.js` — loop, world switching, HUD and overlays.
 - `vendor/three.module.min.js` — three.js r170 (MIT, see `vendor/three.LICENSE`).
 

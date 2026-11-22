@@ -91,3 +91,15 @@ test('randomFreeCell never picks the snake', () => {
   const s = new Snake(g, { cell: { x: 0, y: 0 }, dir: 1 }, 1);
   for (let i = 0; i < 20; i++) assert.deepEqual(randomFreeCell(g, s), { x: 1, y: 0 });
 });
+
+test('a set of apple keys: any of them counts as eating', () => {
+  const g = grid();
+  const s = new Snake(g, { cell: { x: 1, y: 5 }, dir: 1 }, 1);
+  assert.equal(s.step(new Set([g.key({ x: 9, y: 9 }), g.key({ x: 2, y: 5 })]), absoluteGrid), 'ate');
+});
+
+test('a world collision rule can kill the snake', () => {
+  const g = grid();
+  const s = new Snake(g, { cell: { x: 1, y: 5 }, dir: 1 }, 1);
+  assert.equal(s.step(null, absoluteGrid, null, (cell) => cell.x === 2), 'dead');
+});
