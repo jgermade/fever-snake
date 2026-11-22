@@ -18,7 +18,9 @@ same way.
 | 7 | Labyrinth | 3D first person: you are the head; left/right turn |
 | 8 | Notebook | Boiling pencil doodle on lined paper |
 
-Controls: arrows / WASD or swipe, `P`/`Space` pause, `M` mute. Arrows are
+Controls: arrows / WASD or swipe, `P`/`Space` pause, `M` mute. On touch screens
+you can steer continuously: keep the finger down and draw the path (an "L"
+turns twice). Arrows are
 screen-relative in the 3D worlds. On the title screen, click a world to start
 there (practice). `?world=N` in the URL also jumps straight to world N.
 
