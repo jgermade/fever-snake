@@ -7,7 +7,7 @@ import * as THREE from './render/three.js';
 
 const $ = (sel) => document.querySelector(sel);
 const BEST_KEY = 'fever-snake.best';
-const WARP_SECONDS = 1.2; // length of the portal wipe between worlds
+const WARP_SECONDS = 1.6; // length of the portal wipe between worlds
 const ACTIONS = ['up', 'right', 'down', 'left'];
 
 // ---------------------------------------------------------------- stage ---
@@ -72,8 +72,9 @@ const game = {
   best: readBest(),
   pendingWarp: false,
   headScreen: null,
-  // Portal wipe: a snapshot of the previous world that is cut open from the head.
-  transition: { active: false, elapsed: 0, snap: document.createElement('canvas'), mask: document.createElement('canvas') },
+  // Portal between two live worlds: the previous world keeps running outside
+  // the portal while its snake drains into it; the new world shows inside.
+  transition: { active: false, elapsed: 0, oldInst: null, oldWorld: null, oldBody: [], drained: 0 },
 };
 
 function readBest() {
@@ -119,8 +120,15 @@ function placeSnake(inst, carry) {
   if (!carry || !inst.uvOf) return inst.spawn;
   const topo = inst.topology;
   const map = inst.placeMap ?? inst.mapAction;
-  const near = (inst.placeCells ?? topo.cells())
+  const cells = inst.placeCells ?? topo.cells();
+  // Same spot on screen when the world can tell (2D layouts), else same spot on the board.
+  const byScreen = carry.screen && inst.screenOf?.(cells[0]);
+  const near = cells
     .map((cell) => {
+      if (byScreen) {
+        const p = inst.screenOf(cell);
+        return [cell, (p.x - carry.screen.x) ** 2 + (p.y - carry.screen.y) ** 2];
+      }
       const p = inst.uvOf(cell);
       return [cell, (p.u - carry.u) ** 2 + (p.v - carry.v) ** 2];
     })
@@ -144,16 +152,57 @@ function placeSnake(inst, carry) {
   return inst.spawn;
 }
 
+function makeView(snake, apple, alpha, dt = 0) {
+  return {
+    snake,
+    apple,
+    alpha,
+    time: game.time,
+    worldTime: game.worldTime,
+    dt,
+    score: game.score,
+    best: Math.max(game.best, game.score),
+    applesInWorld: game.applesInWorld,
+    applesPerWorld: APPLES_PER_WORLD,
+    worldIndex: game.worldIndex,
+    worldCount: WORLDS.length,
+    phase: game.phase,
+  };
+}
+
+/** Renders a world without showing anything, so its layout (screenOf) is known. */
+function layoutPass(inst, snake) {
+  const { ctx } = stage;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, 0, 0);
+  ctx.clip();
+  inst.render(makeView(snake, null, 0));
+  ctx.restore();
+}
+
+/**
+ * @param carry when set, the snake arrives from the previous world (portal):
+ *   the previous world instance is kept alive by the transition.
+ */
 function enterWorld(index, length, carry = null) {
-  game.inst?.dispose();
-  stage.beginWorld();
+  if (!carry) {
+    endTransition();
+    game.inst?.dispose();
+    stage.beginWorld();
+  }
   game.worldIndex = index;
   game.world = WORLDS[index];
   game.inst = game.world.setup(stage);
-  game.snake = new Snake(game.inst.topology, placeSnake(game.inst, carry), length);
+  let spawn = placeSnake(game.inst, carry);
+  if (carry?.screen && game.inst.screenOf) {
+    layoutPass(game.inst, new Snake(game.inst.topology, spawn, 1));
+    spawn = placeSnake(game.inst, carry);
+  }
+  game.snake = new Snake(game.inst.topology, spawn, length);
   game.apple = randomFreeCell(game.inst.topology, game.snake);
   game.applesInWorld = 0;
-  game.acc = 0;
+  if (!carry) game.acc = 0; // through a portal the tick rhythm carries on
   game.alpha = 0;
   // Arriving through a portal: no "get ready" pause, keep moving.
   game.worldTime = carry ? (game.world.startDelay ?? 0.7) : 0;
@@ -169,7 +218,6 @@ function startGame(index = 0) {
   sfx.start();
   game.score = 0;
   game.loop = 0;
-  game.transition.active = false;
   enterWorld(index, 3);
   setPhase('playing');
 }
@@ -185,6 +233,7 @@ function tick() {
   const appleKey = game.apple ? inst.topology.key(game.apple) : null;
   const res = snake.step(appleKey, inst.mapAction, inst.afterStep);
   if (res === 'dead') return gameOver();
+  if (game.transition.active) game.transition.drained += 1;
   if (res !== 'ate') return;
 
   game.score += 1 + game.loop;
@@ -218,21 +267,27 @@ function warp() {
   const w = WORLDS[next];
   if (next === 0) game.loop += 1;
   sfx.warp();
+  endTransition();
 
-  // Freeze the last frame of the old world (3D canvas below, 2D on top).
+  const { snake, inst } = game;
   const t = game.transition;
-  t.snap.width = t.mask.width = stage.canvas.width;
-  t.snap.height = t.mask.height = stage.canvas.height;
-  const g = t.snap.getContext('2d');
-  if (!stage.glCanvas.hidden) g.drawImage(stage.glCanvas, 0, 0, t.snap.width, t.snap.height);
-  g.drawImage(stage.canvas, 0, 0);
-  t.from = game.headScreen;
-  t.elapsed = 0;
-  t.active = true;
-
-  const head = game.snake.head;
-  const carry = game.inst.uvOf ? { ...game.inst.uvOf(head), action: screenAction(game.inst, game.snake) } : null;
-  enterWorld(next, game.snake.length, carry);
+  Object.assign(t, {
+    active: true,
+    elapsed: 0,
+    oldInst: inst,
+    oldWorld: game.world,
+    oldIndex: game.worldIndex,
+    oldBody: [...snake.body],
+    oldDir: snake.dir,
+    drained: 0,
+    from: game.headScreen,
+  });
+  const carry = {
+    ...(inst.uvOf ? inst.uvOf(snake.head) : { u: 0.5, v: 0.5 }),
+    action: screenAction(inst, snake),
+    screen: game.headScreen,
+  };
+  enterWorld(next, snake.length, carry);
 
   $('#toast-num').textContent = `World ${next + 1} / ${WORLDS.length}${game.loop ? ` · Loop ${game.loop + 1}` : ''}`;
   $('#toast-title').textContent = w.title;
@@ -243,65 +298,99 @@ function warp() {
   toast.classList.add('show');
 }
 
-/** Draws the old world's snapshot with a growing hole centred on the head. */
-function drawTransition(dt) {
+function endTransition() {
   const t = game.transition;
-  if (!t.active) return;
-  if (game.phase === 'playing') t.elapsed += dt;
-  const k = Math.min(1, t.elapsed / WARP_SECONDS);
-  if (k >= 1) {
-    t.active = false;
-    return;
-  }
-  const { width, height, dpr, ctx } = stage;
-  const c = game.headScreen ?? t.from ?? { x: width / 2, y: height / 2 };
-  const maxR = Math.hypot(Math.max(c.x, width - c.x), Math.max(c.y, height - c.y));
-  const ease = k * k * (3 - 2 * k);
-  const r = 18 + ease * maxR;
-  const wobble = (a) => 1 + 0.06 * Math.sin(a * 7 + t.elapsed * 14);
+  t.oldInst?.dispose();
+  t.oldInst = null;
+  t.active = false;
+}
 
-  const m = t.mask.getContext('2d');
-  m.globalCompositeOperation = 'source-over';
-  m.clearRect(0, 0, t.mask.width, t.mask.height);
-  m.drawImage(t.snap, 0, 0);
-  m.globalCompositeOperation = 'destination-out';
-  m.beginPath();
+/**
+ * The old snake as seen in the old world: it keeps crawling along its own
+ * path into the portal (at its last head cell), one segment per tick.
+ */
+function drainingSnake(t) {
+  const P = t.oldBody;
+  const n = Math.max(1, P.length - t.drained);
+  return {
+    body: P.slice(0, n),
+    head: P[0],
+    dir: t.oldDir,
+    alive: true,
+    prevOf: (j) => (t.drained === 0 || j === 0 ? P[j] : P[j + 1] ?? P[j]),
+  };
+}
+
+function portalPath(ctx, c, r, elapsed, scale = 1) {
   for (let i = 0; i <= 48; i++) {
     const a = (i / 48) * Math.PI * 2;
-    const rr = r * wobble(a) * dpr;
-    const x = c.x * dpr + Math.cos(a) * rr;
-    const y = c.y * dpr + Math.sin(a) * rr;
-    if (i) m.lineTo(x, y);
-    else m.moveTo(x, y);
+    const rr = r * scale * (1 + 0.06 * Math.sin(a * 7 + elapsed * 14));
+    const x = c.x + Math.cos(a) * rr;
+    const y = c.y + Math.sin(a) * rr;
+    if (i) ctx.lineTo(x, y);
+    else ctx.moveTo(x, y);
   }
-  m.fill();
+  ctx.closePath();
+}
 
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = 1 - ease * 0.35;
-  ctx.drawImage(t.mask, 0, 0);
-  ctx.restore();
+/** Renders both worlds live, the new one inside a growing portal. */
+function renderTransition(view, dt) {
+  const t = game.transition;
+  const { ctx, width, height } = stage;
+  if (game.phase === 'playing') t.elapsed += dt;
+  const k = Math.min(1, t.elapsed / WARP_SECONDS);
+  const ease = k * k * (3 - 2 * k);
+  const from = t.from ?? { x: width / 2, y: height / 2 };
+  const to = game.headScreen ?? from;
+  const c = { x: from.x + (to.x - from.x) * ease, y: from.y + (to.y - from.y) * ease };
+  const maxR = Math.hypot(Math.max(c.x, width - c.x), Math.max(c.y, height - c.y));
+  const r = 6 + ease * maxR * 1.1;
+  const oldView = { ...view, snake: drainingSnake(t), apple: null, worldIndex: t.oldIndex, applesInWorld: APPLES_PER_WORLD };
+  let head;
+
+  stage.glCanvas.hidden = !(game.world.three || t.oldWorld.three);
+  if (t.oldWorld.three && !game.world.three) {
+    // old world on the WebGL canvas below, new 2D world inside the portal on top
+    t.oldInst.render(oldView);
+    ctx.save();
+    ctx.beginPath();
+    portalPath(ctx, c, r, t.elapsed);
+    ctx.clip();
+    head = game.inst.render(view);
+    ctx.restore();
+  } else {
+    // new world first, then the old 2D world everywhere outside the portal
+    head = game.inst.render(view);
+    if (!t.oldWorld.three) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, width, height);
+      portalPath(ctx, c, r, t.elapsed);
+      ctx.clip('evenodd');
+      t.oldInst.render(oldView);
+      ctx.restore();
+    }
+  }
 
   // Glowing portal rim
   ctx.save();
-  ctx.globalAlpha = 1 - k;
-  ctx.lineWidth = 6;
-  ctx.shadowBlur = 24;
-  for (const [color, scale] of [['#00f0ff', 1], ['#ff2fb9', 0.96]]) {
+  ctx.globalAlpha = Math.min(1, (1 - k) * 2);
+  ctx.lineWidth = 5;
+  ctx.shadowBlur = 22;
+  for (const [color, scale] of [['#00f0ff', 1], ['#ff2fb9', 0.97]]) {
     ctx.strokeStyle = color;
     ctx.shadowColor = color;
     ctx.beginPath();
-    for (let i = 0; i <= 48; i++) {
-      const a = (i / 48) * Math.PI * 2;
-      const rr = r * scale * wobble(a);
-      const x = c.x + Math.cos(a) * rr;
-      const y = c.y + Math.sin(a) * rr;
-      if (i) ctx.lineTo(x, y);
-      else ctx.moveTo(x, y);
-    }
+    portalPath(ctx, c, r, t.elapsed, scale);
     ctx.stroke();
   }
   ctx.restore();
+
+  if (k >= 1) {
+    endTransition();
+    stage.glCanvas.hidden = !game.world.three;
+  }
+  return head;
 }
 
 function togglePause() {
@@ -363,22 +452,9 @@ function frame(now) {
     game.alpha = game.phase === 'playing' ? game.acc / ms : 1;
   }
   stage.ctx.clearRect(0, 0, stage.width, stage.height);
-  game.headScreen = game.inst?.render({
-    snake: game.snake,
-    apple: game.apple,
-    alpha: game.snake.alive ? game.alpha : 1,
-    time: game.time,
-    worldTime: game.worldTime,
-    dt,
-    score: game.score,
-    best: Math.max(game.best, game.score),
-    applesInWorld: game.applesInWorld,
-    applesPerWorld: APPLES_PER_WORLD,
-    worldIndex: game.worldIndex,
-    worldCount: WORLDS.length,
-    phase: game.phase,
-  }) ?? null;
-  drawTransition(dt);
+  const view = makeView(game.snake, game.apple, game.snake.alive ? game.alpha : 1, dt);
+  const head = game.transition.active ? renderTransition(view, dt) : game.inst?.render(view);
+  game.headScreen = head ?? null;
   if (game.pendingWarp && game.phase === 'playing') warp();
   requestAnimationFrame(frame);
 }

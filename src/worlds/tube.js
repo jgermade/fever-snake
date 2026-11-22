@@ -59,6 +59,7 @@ export default {
   deathTitle: 'Game over',
   deathMessage: 'Splat against a ring wall.',
   hud: true,
+  three: true,
   sfx: 'sawtooth',
 
   setup(stage) {

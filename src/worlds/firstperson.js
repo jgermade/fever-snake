@@ -80,6 +80,7 @@ export default {
   deathTitle: 'Game over',
   deathMessage: 'Something bit you in the dark. It was you.',
   hud: true,
+  three: true,
   sfx: 'triangle',
 
   setup(stage) {

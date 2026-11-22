@@ -49,12 +49,15 @@ export default {
   sfx: 'triangle',
 
   setup(stage) {
+    let layout = null;
     const topology = new GridTopology({ width: W, height: H, walls: ROCKS });
     return {
       topology,
       spawn: { cell: { x: 3, y: 7 }, dir: 1 },
       mapAction: absoluteGrid,
       uvOf: gridUV(W, H),
+      /** Screen position of a cell, from the last rendered layout. */
+      screenOf: (cell) => layout && ({ x: layout.ox + (cell.x + 0.5) * layout.c, y: layout.oy + (cell.y + 0.5) * layout.c }),
       render(view) {
         const { ctx, width, height } = stage;
         const seed = Math.floor(view.time * 7);
@@ -171,6 +174,7 @@ export default {
         ctx.rotate(-0.02);
         ctx.fillText("my snake :)", 0, 0);
         ctx.restore();
+        layout = { ox, oy, c };
         return { x: hx, y: hy };
       },
       dispose() {},

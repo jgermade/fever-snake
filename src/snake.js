@@ -37,14 +37,26 @@ export class Snake {
     if (this.queue.length < 3) this.queue.push(action);
   }
 
-  /** Pops queued actions until one produces a valid turn. */
+  /**
+   * Applies the first queued action that produces a valid turn.
+   *
+   * A reverse turn cannot be applied now, but it is kept for the next tick if
+   * a valid turn follows it: pressing "right" + "down" almost together while
+   * heading left (right registered first) becomes down, then right — a quick
+   * U-turn instead of a lost key press.
+   */
   consumeInput(mapAction) {
+    const deferred = [];
     while (this.queue.length) {
       const action = this.queue.shift();
       const d = mapAction(action, this);
-      if (d == null) continue;
-      if (this.topo.sameDir(d, this.dir) || this.topo.isReverse(d, this.dir)) continue;
+      if (d == null || this.topo.sameDir(d, this.dir)) continue;
+      if (this.topo.isReverse(d, this.dir)) {
+        deferred.push(action);
+        continue;
+      }
       this.dir = d;
+      this.queue = [...deferred, ...this.queue];
       return;
     }
   }
