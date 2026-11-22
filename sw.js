@@ -19,6 +19,8 @@ const ASSETS = [
   './src/audio.js',
   './src/order.js',
   './src/placement.js',
+  './src/music.js',
+  './src/juice.js',
   './src/topologies/mobius.js',
   './src/topologies/grid.js',
   './src/topologies/cube.js',
@@ -46,6 +48,9 @@ const ASSETS = [
   './src/worlds/vertigo.js',
   './src/worlds/checkmate.js',
   './src/worlds/aquarium.js',
+  './src/worlds/klein.js',
+  './src/worlds/blackhole.js',
+  './src/worlds/mirror.js',
 ];
 
 self.addEventListener('install', (event) => {

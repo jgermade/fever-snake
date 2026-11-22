@@ -68,3 +68,9 @@ test('mobius: crossing the seam mirrors x; two laps return to the start', () => 
   for (let i = 0; i < 12; i++) c = m.step(c, 2).cell;
   assert.deepEqual(c, { x: 1, y: 0 });
 });
+
+test('klein bottle: x wraps plainly, y wraps with a mirror', () => {
+  const k = new MobiusTopology({ width: 6, height: 4, wrapX: true });
+  assert.deepEqual(k.step({ x: 5, y: 1 }, 1).cell, { x: 0, y: 1 });
+  assert.deepEqual(k.step({ x: 1, y: 0 }, 0).cell, { x: 4, y: 3 });
+});
