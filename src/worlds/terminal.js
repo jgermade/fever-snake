@@ -83,7 +83,7 @@ export default {
         // Boot sequence during the first second of the world
         const boot = view.worldTime;
         if (boot < 1.2) {
-          const lines = Math.min(BOOT.length, Math.floor(boot / 0.25) + 1);
+          const lines = Math.max(1, Math.min(BOOT.length, Math.floor(boot / 0.25) + 1));
           for (let i = 0; i < lines; i++) put(BOOT[i], 0, i + 2);
           if (Math.floor(boot * 6) % 2) put('_', BOOT[lines - 1].length, lines + 1);
         } else {

@@ -55,3 +55,16 @@ test('grid: walls block and connectivity check works', () => {
   const h = new GridTopology({ width: 3, height: 3, walls: [[1, 0], [1, 1]] });
   assert.equal(isFullyConnected(h, { x: 0, y: 0 }), true);
 });
+
+import { MobiusTopology } from '../src/topologies/mobius.js';
+
+test('mobius: crossing the seam mirrors x; two laps return to the start', () => {
+  const m = new MobiusTopology({ width: 5, height: 6 });
+  const r = m.step({ x: 1, y: 5 }, 2);
+  assert.deepEqual(r.cell, { x: 3, y: 0 });
+  assert.ok(r.seam);
+  assert.equal(m.step({ x: 4, y: 2 }, 1), null, 'long edges are deadly');
+  let c = { x: 1, y: 0 };
+  for (let i = 0; i < 12; i++) c = m.step(c, 2).cell;
+  assert.deepEqual(c, { x: 1, y: 0 });
+});

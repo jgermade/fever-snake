@@ -2,6 +2,7 @@
 import { Snake, randomFreeCell } from './snake.js';
 import { WORLDS, APPLES_PER_WORLD } from './worlds/index.js';
 import { makeOrder } from './order.js';
+import { MIN_RUNWAY, placeSnake, runway, screenAction } from './placement.js';
 import { bindInput } from './input.js';
 import { sfx } from './audio.js';
 import * as THREE from './render/three.js';
@@ -9,7 +10,7 @@ import * as THREE from './render/three.js';
 const $ = (sel) => document.querySelector(sel);
 const BEST_KEY = 'fever-snake.best';
 const WARP_SECONDS = 1.6; // length of the portal wipe between worlds
-const ACTIONS = ['up', 'right', 'down', 'left'];
+const ARRIVAL_TICKS = 6; // slower first ticks after arriving in a new world
 
 // ---------------------------------------------------------------- stage ---
 const stage = (() => {
@@ -59,6 +60,7 @@ const stage = (() => {
 const game = {
   phase: 'title', // title | playing | paused | dying | over
   worldIndex: 0, // index into WORLDS
+  arrival: 0, // remaining slow ticks after a world change
   order: [], // shuffled WORLDS indices for the current loop
   stage: 0, // position in `order` (shown as "World k / N")
   loop: 0,
@@ -101,58 +103,9 @@ function saveBest() {
 
 function tickMs() {
   const base = game.world.tickMs * Math.pow(0.97, game.applesInWorld) * Math.pow(0.88, game.loop);
-  return Math.max(55, base);
-}
-
-/** Which arrow key the snake is currently heading along, on screen. */
-function screenAction(inst, snake) {
-  const map = inst.placeMap ?? inst.mapAction;
-  for (const a of ACTIONS) {
-    const d = map(a, snake);
-    if (d != null && inst.topology.sameDir(d, snake.dir)) return a;
-  }
-  return 'right';
-}
-
-/**
- * Finds where a snake arriving from another world should appear: the free
- * cell closest to the same spot on the board, heading the same way on screen,
- * with a few free cells ahead so the arrival is never an instant crash.
- */
-function placeSnake(inst, carry) {
-  if (!carry || !inst.uvOf) return inst.spawn;
-  const topo = inst.topology;
-  const map = inst.placeMap ?? inst.mapAction;
-  const cells = inst.placeCells ?? topo.cells();
-  // Same spot on screen when the world can tell (2D layouts), else same spot on the board.
-  const byScreen = carry.screen && inst.screenOf?.(cells[0]);
-  const near = cells
-    .map((cell) => {
-      if (byScreen) {
-        const p = inst.screenOf(cell);
-        return [cell, (p.x - carry.screen.x) ** 2 + (p.y - carry.screen.y) ** 2];
-      }
-      const p = inst.uvOf(cell);
-      return [cell, (p.u - carry.u) ** 2 + (p.v - carry.v) ** 2];
-    })
-    .sort((a, b) => a[1] - b[1])
-    .slice(0, 80);
-  for (const action of [carry.action, ...ACTIONS.filter((a) => a !== carry.action)]) {
-    for (const [cell] of near) {
-      const dir = map(action, { head: cell, dir: null });
-      if (dir == null) continue;
-      let c = cell;
-      let d = dir;
-      let ok = true;
-      for (let k = 0; k < 4 && ok; k++) {
-        const r = topo.step(c, d);
-        if (!r) ok = false;
-        else [c, d] = [r.cell, r.dir];
-      }
-      if (ok) return { cell, dir };
-    }
-  }
-  return inst.spawn;
+  // Arriving through a portal: start at ~1.9x the tick time and ease back.
+  const arrival = 1 + 0.9 * (game.arrival / ARRIVAL_TICKS);
+  return Math.max(55, base) * arrival;
 }
 
 function makeView(snake, apple, alpha, dt = 0) {
@@ -198,6 +151,10 @@ function enterWorld(index, length, carry = null) {
   game.world = WORLDS[index];
   game.inst = game.world.setup(stage);
   let spawn = placeSnake(game.inst, carry);
+  // Worlds with random walls: if the authored spawn is too tight, find a better one nearby.
+  if (!carry && game.inst.uvOf && runway(game.inst.topology, spawn.cell, spawn.dir) < MIN_RUNWAY) {
+    spawn = placeSnake(game.inst, { ...game.inst.uvOf(spawn.cell), action: 'right' });
+  }
   if (carry?.screen && game.inst.screenOf) {
     layoutPass(game.inst, new Snake(game.inst.topology, spawn, 1));
     spawn = placeSnake(game.inst, carry);
@@ -206,6 +163,7 @@ function enterWorld(index, length, carry = null) {
   game.apple = randomFreeCell(game.inst.topology, game.snake);
   game.applesInWorld = 0;
   if (!carry) game.acc = 0; // through a portal the tick rhythm carries on
+  game.arrival = carry ? ARRIVAL_TICKS : 0;
   game.alpha = 0;
   // Arriving through a portal: no "get ready" pause, keep moving.
   game.worldTime = carry ? (game.world.startDelay ?? 0.7) : 0;
@@ -240,6 +198,7 @@ function tick() {
   const res = snake.step(appleKey, inst.mapAction, inst.afterStep);
   if (res === 'dead') return gameOver();
   if (game.transition.active) game.transition.drained += 1;
+  if (game.arrival > 0) game.arrival -= 1;
   if (res !== 'ate') return;
 
   game.score += 1 + game.loop;
@@ -450,7 +409,8 @@ function onAction(action) {
 // ------------------------------------------------------------------ loop ---
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000);
+  // rAF timestamps can be earlier than the time the script started: clamp at 0.
+  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
   last = now;
   game.time += dt;
   if (game.phase === 'playing') {
@@ -465,10 +425,16 @@ function frame(now) {
   }
   stage.ctx.clearRect(0, 0, stage.width, stage.height);
   const view = makeView(game.snake, game.apple, game.snake.alive ? game.alpha : 1, dt);
-  const head = game.transition.active ? renderTransition(view, dt) : game.inst?.render(view);
-  game.headScreen = head ?? null;
-  if (game.pendingWarp && game.phase === 'playing') warp();
-  requestAnimationFrame(frame);
+  try {
+    const head = game.transition.active ? renderTransition(view, dt) : game.inst?.render(view);
+    game.headScreen = head ?? null;
+    if (game.pendingWarp && game.phase === 'playing') warp();
+  } catch (err) {
+    // A rendering bug must never freeze the game loop.
+    console.error(err);
+  } finally {
+    requestAnimationFrame(frame);
+  }
 }
 
 // ------------------------------------------------------------------ boot ---
@@ -522,6 +488,6 @@ function registerServiceWorker() {
 }
 
 // Expose for debugging and automated tests.
-window.__feverSnake = { game, WORLDS, startGame, onAction };
+window.__feverSnake = { game, WORLDS, startGame, onAction, warp };
 
 boot();
